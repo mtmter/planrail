@@ -43,7 +43,7 @@ Firestoreへ保存するRoute項目は `origin`、`destination`、`departure_at`
 #### Scenario: 拡張Route情報を保存後に表示する
 
 - **WHEN** travel planに比較用Route情報または公共交通segmentの追加情報が保存されている
-- **THEN** システムは再検索せずに取得済みの乗換数、徒歩・待ち時間、IC運賃優先の運賃、mode、train type、headsign、platform、color、headway情報を詳細表示へ利用できる
+- **THEN** システムは再検索せずに取得済みの乗換数、徒歩・待ち時間、IC運賃優先の運賃、mode、train type、headsign、platform、headway情報を詳細表示する。segmentの`color`は保存済みroute dataに保持し、色を使った表示は要求しない
 
 #### Scenario: nullableなRoute情報が保存されている
 

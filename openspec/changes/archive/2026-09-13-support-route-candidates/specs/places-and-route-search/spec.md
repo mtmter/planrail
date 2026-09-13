@@ -139,6 +139,11 @@ RouteSegment:
 - **WHEN** Transit responseに未対応のcoverage codeが含まれる
 - **THEN** システムは検索全体を失敗させず、そのnoticeをユーザー向けwarningsへ含めない
 
+#### Scenario: 不正なcoverage noticeを無視する
+
+- **WHEN** Transit responseのcoverage noticeが不正な形式である
+- **THEN** システムはそのnoticeをwarningsへ含めず、有効な経路検索を失敗させない
+
 #### Scenario: 不正なoptionまたはRoute情報を受け取る
 
 - **WHEN** Transit response、option、journey、または必須のRoute/segment情報が共通形式へ変換できない
