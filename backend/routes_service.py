@@ -140,14 +140,50 @@ def _convert_transit_option(option, service_midnight, origin, destination):
     if not isinstance(raw_legs, list):
         raise RoutesResponseError("Transit journeyのlegs形式が不正です")
 
+    access_walk_seconds = _optional_number_field(
+        journey,
+        "accessWalkSecs",
+        "journeyのaccess walk時間",
+    )
+    egress_walk_seconds = _optional_number_field(
+        journey,
+        "egressWalkSecs",
+        "journeyのegress walk時間",
+    )
+    if access_walk_seconds is not None and access_walk_seconds < 0:
+        raise RoutesResponseError("Transit journeyのaccess walk時間が負の値です")
+    if egress_walk_seconds is not None and egress_walk_seconds < 0:
+        raise RoutesResponseError("Transit journeyのegress walk時間が負の値です")
+
+    access_stop_name = None
+    if access_walk_seconds is not None and access_walk_seconds > 0:
+        if not raw_legs or not isinstance(raw_legs[0], dict):
+            raise RoutesResponseError(
+                "Transit access walkに隣接するjourney legがありません"
+            )
+        access_stop_name = _leg_endpoint_name(raw_legs[0].get("from"), "from")
+
+    egress_stop_name = None
+    if egress_walk_seconds is not None and egress_walk_seconds > 0:
+        if not raw_legs or not isinstance(raw_legs[-1], dict):
+            raise RoutesResponseError(
+                "Transit egress walkに隣接するjourney legがありません"
+            )
+        egress_stop_name = _leg_endpoint_name(raw_legs[-1].get("to"), "to")
+
     has_transit_leg = any(
         isinstance(leg, dict) and leg.get("kind") == "transit"
         for leg in raw_legs
     )
-    if not has_transit_leg and all(
+    walking_only_option = not has_transit_leg and all(
         isinstance(leg, dict) and leg.get("kind") == "walk"
         for leg in raw_legs
-    ):
+    )
+    has_external_walk = (
+        (access_walk_seconds is not None and access_walk_seconds > 0)
+        or (egress_walk_seconds is not None and egress_walk_seconds > 0)
+    )
+    if walking_only_option and not has_external_walk:
         return None
 
     route_departure_seconds = _number_field(
@@ -170,12 +206,49 @@ def _convert_transit_option(option, service_midnight, origin, destination):
     if route_duration_seconds < 0:
         raise RoutesResponseError("Transit journeyの所要時間が負の値です")
 
+    external_walk_seconds = (access_walk_seconds or 0) + (egress_walk_seconds or 0)
+    journey_interval_seconds = route_arrival_seconds - route_departure_seconds
+    if (
+        external_walk_seconds > route_duration_seconds
+        or external_walk_seconds > journey_interval_seconds
+    ):
+        raise RoutesResponseError(
+            "Transit journeyのaccess/egress walk時間がjourney時間と整合しません"
+        )
+    if walking_only_option:
+        return None
+
     parsed_legs = [
         _convert_transit_leg(leg, service_midnight)
         for leg in raw_legs
     ]
     if not any(leg["type"] == "TRANSIT" for leg in parsed_legs):
         return None
+
+    segments = list(parsed_legs)
+    if access_walk_seconds is not None and access_walk_seconds > 0:
+        segments.insert(
+            0,
+            _convert_external_walk_segment(
+                origin,
+                access_stop_name,
+                route_departure_seconds,
+                route_departure_seconds + access_walk_seconds,
+                access_walk_seconds,
+                service_midnight,
+            ),
+        )
+    if egress_walk_seconds is not None and egress_walk_seconds > 0:
+        segments.append(
+            _convert_external_walk_segment(
+                egress_stop_name,
+                destination,
+                route_arrival_seconds - egress_walk_seconds,
+                route_arrival_seconds,
+                egress_walk_seconds,
+                service_midnight,
+            )
+        )
 
     metrics = option.get("metrics")
     if metrics is None:
@@ -222,7 +295,7 @@ def _convert_transit_option(option, service_midnight, origin, destination):
             if metrics.get("fare") is not None
             else journey.get("fare")
         ),
-        "segments": parsed_legs,
+        "segments": segments,
     }
 
 
@@ -304,6 +377,36 @@ def _convert_transit_leg(leg, service_midnight):
             if segment_type == "TRANSIT"
             else None
         ),
+    }
+
+
+def _convert_external_walk_segment(
+    from_name,
+    to_name,
+    departure_seconds,
+    arrival_seconds,
+    duration_seconds,
+    service_midnight,
+):
+    return {
+        "type": "WALK",
+        "from": from_name,
+        "to": to_name,
+        "departure_at": _format_app_datetime(
+            _datetime_at_service_seconds(service_midnight, departure_seconds)
+        ),
+        "arrival_at": _format_app_datetime(
+            _datetime_at_service_seconds(service_midnight, arrival_seconds)
+        ),
+        "duration_minutes": _seconds_to_minutes(duration_seconds),
+        "line_name": None,
+        "mode": None,
+        "train_type": None,
+        "headsign": None,
+        "from_platform": None,
+        "to_platform": None,
+        "color": None,
+        "headway_based": None,
     }
 
 

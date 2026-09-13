@@ -15,10 +15,17 @@ from route_providers import ROUTE_PROVIDERS, mock_provider, transit_provider
 FIXTURE_PATH = (
     Path(__file__).parent / "fixtures" / "transit_guidance_plan_demo.json"
 )
+ACCESS_EGRESS_FIXTURE_PATH = (
+    Path(__file__).parent / "fixtures" / "transit_guidance_plan_access_egress.json"
+)
 
 
 def load_fixture():
     return json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+
+
+def load_access_egress_fixture():
+    return json.loads(ACCESS_EGRESS_FIXTURE_PATH.read_text(encoding="utf-8"))
 
 
 def make_response(response_data=None, status_code=200, json_error=False):
@@ -53,6 +60,17 @@ def reverse_payload(name, endpoint="demo:station", kind="station", distance=20):
 
 
 class TransitRouteConverterTest(unittest.TestCase):
+    def test_access_egress_fixture_contains_facility_and_station_leg(self):
+        response_data = load_access_egress_fixture()
+        journey = response_data["options"][0]["journey"]
+
+        self.assertEqual(response_data["from"]["name"], "津山中学校・高等学校")
+        self.assertEqual(response_data["to"]["name"], "岡山県立図書館")
+        self.assertEqual(journey["accessWalkSecs"], 900)
+        self.assertEqual(journey["egressWalkSecs"], 600)
+        self.assertEqual(journey["legs"][0]["from"]["name"], "津山")
+        self.assertEqual(journey["legs"][0]["to"]["name"], "岡山")
+
     def test_search_route_preserves_timeout_as_distinct_service_error(self):
         transit_timeout = transit_provider.TransitTimeoutError(
             "Transit guidance planがタイムアウトしました"
@@ -227,6 +245,204 @@ class TransitRouteConverterTest(unittest.TestCase):
         self.assertEqual(route["arrival_at"], "2026-08-26T00:00")
         self.assertEqual(route["duration_minutes"], 2)
         self.assertEqual(route["segments"][0]["duration_minutes"], 2)
+
+    def test_converter_wraps_legs_with_access_and_egress_walk_segments(self):
+        response_data = load_access_egress_fixture()
+        result = routes_service.convert_transit_routes(
+            response_data,
+            "津山中学校・高等学校",
+            "岡山県立図書館",
+        )
+
+        route = result["candidates"][0]
+        access, transit, egress = route["segments"]
+        self.assertEqual(route["origin"], "津山中学校・高等学校")
+        self.assertEqual(route["destination"], "岡山県立図書館")
+        self.assertEqual(
+            [segment["type"] for segment in route["segments"]],
+            ["WALK", "TRANSIT", "WALK"],
+        )
+        self.assertEqual(
+            (access["from"], access["to"]),
+            ("津山中学校・高等学校", "津山"),
+        )
+        self.assertEqual(
+            (access["departure_at"], access["arrival_at"], access["duration_minutes"]),
+            ("2026-08-25T08:54", "2026-08-25T09:09", 15),
+        )
+        self.assertEqual(
+            (transit["from"], transit["to"], transit["departure_at"], transit["arrival_at"]),
+            ("津山", "岡山", "2026-08-25T09:12", "2026-08-25T09:47"),
+        )
+        self.assertEqual(
+            (egress["from"], egress["to"]),
+            ("岡山", "岡山県立図書館"),
+        )
+        self.assertEqual(
+            (egress["departure_at"], egress["arrival_at"], egress["duration_minutes"]),
+            ("2026-08-25T09:47", "2026-08-25T09:57", 10),
+        )
+        segment_fields = {
+            "type",
+            "from",
+            "to",
+            "departure_at",
+            "arrival_at",
+            "duration_minutes",
+            "line_name",
+            "mode",
+            "train_type",
+            "headsign",
+            "from_platform",
+            "to_platform",
+            "color",
+            "headway_based",
+        }
+        for segment in (access, egress):
+            self.assertEqual(set(segment), segment_fields)
+            self.assertEqual(segment["line_name"], None)
+            for field in (
+                "mode",
+                "train_type",
+                "headsign",
+                "from_platform",
+                "to_platform",
+                "color",
+                "headway_based",
+            ):
+                self.assertIsNone(segment[field])
+
+        self.assertEqual(route["walk_minutes"], 40)
+        response_without_external_walks = copy.deepcopy(response_data)
+        journey = response_without_external_walks["options"][0]["journey"]
+        journey.pop("accessWalkSecs")
+        journey.pop("egressWalkSecs")
+        route_without_external_walks = routes_service.convert_transit_routes(
+            response_without_external_walks,
+            "津山中学校・高等学校",
+            "岡山県立図書館",
+        )["candidates"][0]
+        self.assertEqual(transit, route_without_external_walks["segments"][0])
+
+    def test_converter_handles_each_external_walk_side_and_omitted_or_zero_values(self):
+        cases = [
+            ("access only", {"egressWalkSecs": None}, ["WALK", "TRANSIT"]),
+            ("egress only", {"accessWalkSecs": None}, ["TRANSIT", "WALK"]),
+            ("omitted", {"accessWalkSecs": None, "egressWalkSecs": None}, ["TRANSIT"]),
+            ("zero", {"accessWalkSecs": 0, "egressWalkSecs": 0}, ["TRANSIT"]),
+        ]
+
+        for case_name, updates, expected_types in cases:
+            with self.subTest(case=case_name):
+                response_data = load_access_egress_fixture()
+                journey = response_data["options"][0]["journey"]
+                for field, value in updates.items():
+                    if value is None:
+                        journey.pop(field, None)
+                    else:
+                        journey[field] = value
+
+                route = routes_service.convert_transit_routes(
+                    response_data,
+                    "津山中学校・高等学校",
+                    "岡山県立図書館",
+                )["candidates"][0]
+                self.assertEqual(
+                    [segment["type"] for segment in route["segments"]],
+                    expected_types,
+                )
+
+    def test_converter_rounds_external_walks_without_absorbing_wait_time(self):
+        response_data = load_access_egress_fixture()
+        journey = response_data["options"][0]["journey"]
+        journey["accessWalkSecs"] = 901
+        journey["egressWalkSecs"] = 601
+
+        route = routes_service.convert_transit_routes(
+            response_data,
+            "津山中学校・高等学校",
+            "岡山県立図書館",
+        )["candidates"][0]
+        access, transit, egress = route["segments"]
+
+        self.assertEqual(
+            (access["departure_at"], access["arrival_at"], access["duration_minutes"]),
+            ("2026-08-25T08:54", "2026-08-25T09:09", 16),
+        )
+        self.assertEqual(transit["departure_at"], "2026-08-25T09:12")
+        self.assertEqual(
+            (egress["departure_at"], egress["arrival_at"], egress["duration_minutes"]),
+            ("2026-08-25T09:46", "2026-08-25T09:57", 11),
+        )
+
+    def test_converter_rejects_malformed_or_unbuildable_external_walks(self):
+        invalid_values = [-1, "900", True, float("nan"), float("inf")]
+        for field in ("accessWalkSecs", "egressWalkSecs"):
+            for invalid_value in invalid_values:
+                with self.subTest(field=field, value=invalid_value):
+                    response_data = load_access_egress_fixture()
+                    response_data["options"][0]["journey"][field] = invalid_value
+                    with self.assertRaises(routes_service.RoutesResponseError):
+                        routes_service.convert_transit_routes(
+                            response_data,
+                            "津山中学校・高等学校",
+                            "岡山県立図書館",
+                        )
+
+        inconsistent_response = load_access_egress_fixture()
+        inconsistent_journey = inconsistent_response["options"][0]["journey"]
+        inconsistent_journey["accessWalkSecs"] = 1900
+        inconsistent_journey["egressWalkSecs"] = 2000
+        with self.assertRaises(routes_service.RoutesResponseError):
+            routes_service.convert_transit_routes(
+                inconsistent_response,
+                "津山中学校・高等学校",
+                "岡山県立図書館",
+            )
+
+        inconsistent_walking_option = load_access_egress_fixture()
+        walking_journey = inconsistent_walking_option["options"][0]["journey"]
+        walking_journey["legs"] = [
+            {
+                "kind": "walk",
+                "from": {"name": "津山"},
+                "to": {"name": "岡山"},
+                "departureSecs": 32040,
+                "arrivalSecs": 35820,
+            }
+        ]
+        walking_journey["accessWalkSecs"] = 4000
+        walking_journey.pop("egressWalkSecs")
+        with self.assertRaises(routes_service.RoutesResponseError):
+            routes_service.convert_transit_routes(
+                inconsistent_walking_option,
+                "津山中学校・高等学校",
+                "岡山県立図書館",
+            )
+
+        for side, endpoint_field in (
+            ("access", "from"),
+            ("egress", "to"),
+        ):
+            with self.subTest(missing_stop=side):
+                response_data = load_access_egress_fixture()
+                journey = response_data["options"][0]["journey"]
+                journey["legs"][0][endpoint_field]["name"] = "  "
+                with self.assertRaises(routes_service.RoutesResponseError):
+                    routes_service.convert_transit_routes(
+                        response_data,
+                        "津山中学校・高等学校",
+                        "岡山県立図書館",
+                    )
+
+        no_legs_response = load_access_egress_fixture()
+        no_legs_response["options"][0]["journey"]["legs"] = []
+        with self.assertRaises(routes_service.RoutesResponseError):
+            routes_service.convert_transit_routes(
+                no_legs_response,
+                "津山中学校・高等学校",
+                "岡山県立図書館",
+            )
 
     def test_converter_reports_no_options_and_walking_only(self):
         with self.assertRaises(routes_service.RouteNotFoundError):
@@ -606,6 +822,62 @@ class TransitProviderTest(unittest.TestCase):
 
         plan_params = mock_get.call_args_list[1].kwargs["params"]
         self.assertEqual(plan_params["from"], "feed:nearest")
+
+    @patch("route_providers.transit_provider.httpx.get")
+    def test_snapped_station_endpoints_do_not_gain_external_walk_segments(
+        self,
+        mock_get,
+    ):
+        plan_response = {
+            "date": "20260825",
+            "timezone": "Asia/Tokyo",
+            "options": [
+                {
+                    "metrics": {"durationSecs": 1800, "walkSecs": 0},
+                    "journey": {
+                        "departureSecs": 32040,
+                        "arrivalSecs": 33840,
+                        "durationSecs": 1800,
+                        "legs": [
+                            {
+                                "kind": "transit",
+                                "routeName": "JR線",
+                                "from": {"name": "岡山"},
+                                "to": {"name": "津山"},
+                                "departureSecs": 32040,
+                                "arrivalSecs": 33840,
+                            }
+                        ],
+                    },
+                }
+            ],
+        }
+        mock_get.side_effect = [
+            make_response(reverse_payload("岡山駅", endpoint="feed:okayama")),
+            make_response(reverse_payload("津山駅", endpoint="feed:tsuyama")),
+            make_response(plan_response),
+        ]
+
+        response_data = transit_provider.get_route(
+            "34.666,133.918",
+            "35.054,134.004",
+            datetime(2026, 8, 25, 9, 30),
+            origin_display_name="岡山駅",
+            destination_display_name="津山駅",
+        )
+        route = routes_service.convert_transit_routes(
+            response_data,
+            "岡山駅",
+            "津山駅",
+        )["candidates"][0]
+
+        planning_params = mock_get.call_args_list[2].kwargs["params"]
+        self.assertEqual(planning_params["from"], "feed:okayama")
+        self.assertEqual(planning_params["to"], "feed:tsuyama")
+        self.assertEqual(
+            [segment["type"] for segment in route["segments"]],
+            ["TRANSIT"],
+        )
 
     @patch("route_providers.transit_provider.httpx.get")
     def test_name_mismatch_and_nearby_facility_do_not_snap(self, mock_get):

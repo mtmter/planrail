@@ -1,0 +1,49 @@
+{
+  "date": "20260825",
+  "timezone": "Asia/Tokyo",
+  "from": {
+    "id": "geo:35.061,134.004",
+    "name": "津山中学校・高等学校"
+  },
+  "to": {
+    "id": "geo:34.661,133.935",
+    "name": "岡山県立図書館"
+  },
+  "options": [
+    {
+      "id": "access-egress-option",
+      "recommended": true,
+      "metrics": {
+        "durationSecs": 3780,
+        "walkSecs": 2400,
+        "waitSecs": 180,
+        "transferCount": 0
+      },
+      "journey": {
+        "departureSecs": 32040,
+        "arrivalSecs": 35820,
+        "durationSecs": 3780,
+        "accessWalkSecs": 900,
+        "egressWalkSecs": 600,
+        "legs": [
+          {
+            "kind": "transit",
+            "routeName": "JR津山線",
+            "mode": "rail",
+            "from": {
+              "id": "transit:tsuyama",
+              "name": "津山"
+            },
+            "to": {
+              "id": "transit:okayama",
+              "name": "岡山"
+            },
+            "departureSecs": 33120,
+            "arrivalSecs": 35220,
+            "headwayBased": false
+          }
+        ]
+      }
+    }
+  ]
+}

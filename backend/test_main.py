@@ -10,6 +10,7 @@ from routes_service import (
     RouteNotFoundError,
     RouteProviderError,
     RouteProviderTimeoutError,
+    RoutesResponseError,
 )
 from route_providers.transit_provider import (
     TransitHttpError,
@@ -179,6 +180,7 @@ class RouteSearchApiTest(unittest.TestCase):
         error_cases = [
             (RouteNotFoundError("経路が見つかりませんでした"), 404),
             (RouteEndpointResolutionError("Places候補を選択してください"), 400),
+            (RoutesResponseError("Transit responseを変換できませんでした"), 502),
             (RouteProviderError("接続できませんでした"), 502),
             (RouteProviderTimeoutError("Transitがタイムアウトしました"), 504),
         ]
