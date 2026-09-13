@@ -12,21 +12,36 @@ function getTransportLabel(segment) {
   return segment.type;
 }
 
-function TravelPlanDetails({ onSearch, travelPlan }) {
+function TravelPlanDetails({
+  emptyMessage = "移動予定がありません",
+  isSearchDisabled = false,
+  onSearch,
+  travelPlan,
+}) {
+  const searchAction = onSearch && (
+    <>
+      <button
+        className="route-search-button"
+        type="button"
+        disabled={isSearchDisabled}
+        onClick={onSearch}
+      >
+        {travelPlan ? "経路を再検索" : "経路を検索"}
+      </button>
+      {isSearchDisabled && (
+        <p className="route-search-guidance" role="status">
+          経路検索するには、場所を候補から選択してください
+        </p>
+      )}
+    </>
+  );
+
   if (!travelPlan) {
     return (
       <section className="travel-plan-section">
         <h3>移動予定</h3>
-        <p className="travel-plan-empty">移動予定がありません</p>
-        {onSearch && (
-          <button
-            className="route-search-button"
-            type="button"
-            onClick={onSearch}
-          >
-            経路を検索
-          </button>
-        )}
+        <p className="travel-plan-empty">{emptyMessage}</p>
+        {searchAction}
       </section>
     );
   }
@@ -67,15 +82,7 @@ function TravelPlanDetails({ onSearch, travelPlan }) {
         )}
       </div>
 
-      {onSearch && (
-        <button
-          className="route-search-button"
-          type="button"
-          onClick={onSearch}
-        >
-          経路を再検索
-        </button>
-      )}
+      {searchAction}
     </section>
   );
 }

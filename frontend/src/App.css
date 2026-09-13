@@ -1641,8 +1641,18 @@
   font-weight: 650;
 }
 
-.route-search-button:hover {
+.route-search-button:not(:disabled):hover {
   background: #244fae;
+}
+
+.route-search-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.route-search-guidance {
+  color: #747f91;
+  font-size: 0.86rem;
 }
 
 .travel-plan-section {

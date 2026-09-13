@@ -118,12 +118,11 @@ function EventDetailsModal({
       : event.destination_place_id
         ? "Google Mapsで場所を表示"
         : "未設定");
-  const canSearchRoute = Boolean(
-    event.destination ||
-      event.location_name ||
-      (hasCoordinateValue(event.destination_lat) &&
-        hasCoordinateValue(event.destination_lng)),
-  );
+  const canSearchRoute = hasCoordinates;
+  const travelPlanEmptyMessage =
+    event.destination || event.location_name || hasCoordinates
+      ? "移動予定がありません"
+      : "経路検索には予定の目的地が必要です";
 
   useEffect(() => {
     let shouldIgnoreResult = false;
@@ -548,25 +547,16 @@ function EventDetailsModal({
                 <h3>移動予定</h3>
                 <p className="travel-plan-empty">読み込み中...</p>
               </section>
-            ) : travelPlan || canSearchRoute ? (
-              <TravelPlanDetails
-                travelPlan={travelPlan}
-                onSearch={
-                  canSearchRoute
-                    ? () => {
-                        setErrorMessage("");
-                        setMode("route");
-                      }
-                    : null
-                }
-              />
             ) : (
-              <section className="travel-plan-section">
-                <h3>移動予定</h3>
-                <p className="travel-plan-empty">
-                  経路検索には予定の目的地が必要です
-                </p>
-              </section>
+              <TravelPlanDetails
+                emptyMessage={travelPlanEmptyMessage}
+                isSearchDisabled={!canSearchRoute}
+                travelPlan={travelPlan}
+                onSearch={() => {
+                  setErrorMessage("");
+                  setMode("route");
+                }}
+              />
             )}
 
             {errorMessage && (
