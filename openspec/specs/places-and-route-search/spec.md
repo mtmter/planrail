@@ -195,6 +195,10 @@ RouteSegment:
 
 coverage noticeのうち、`severity=warning`かつ既知の `loadedDataScope`、`stationRailCandidateMissing`、`noRouteInLoadedData`、`constraintsApplied`、`constraintsNoRoute`、`staleFeedData` は固定のPlanRail日本語文言へ変換する。Transitが返す生message、info notice、未知code、不正noticeはwarningsへ含めず、これらのnoticeによって経路検索を失敗させてはならない（MUST NOT）。
 
+Transitの `journey.accessWalkSecs` または `journey.egressWalkSecs` が正の値である場合、システムは該当する外部徒歩区間を既存の `WALK` RouteSegmentとして表現しなければならない（MUST）。access区間は候補のorigin表示名から最初のjourney legの `from.name` までとし、時刻は `journey.departureSecs` から `journey.departureSecs + accessWalkSecs` とする。egress区間は最後のjourney legの `to.name` から候補のdestination表示名までとし、時刻は `journey.arrivalSecs - egressWalkSecs` から `journey.arrivalSecs` とする。durationは各秒数を分へ切り上げ、`line_name` および既存schema上の交通機関固有項目をnullとする。access区間は既存journey legの前、egress区間は後に置き、journey legの順序・内容と待ち時間を変更してはならない。秒数が欠落または0の場合は外部徒歩区間を追加してはならない（MUST NOT）。`metrics.walkSecs` による候補全体の `walk_minutes` は現在のとおり変換し、access/egress秒数を再加算してはならない（MUST NOT）。徒歩区間はTransitが返した値に基づいてのみ追加し、駅・停留所との近さから推定してはならない（MUST NOT）。
+
+access/egress秒数が負、数値以外、NaNまたは無限大相当である場合、あるいは合計秒数がjourneyのdurationまたはdeparture/arrivalの時間幅と整合しない場合、APIはTransit response errorとして扱い、既存の経路検索サービスエラー経路を通じてHTTP 502を返さなければならない（MUST）。正の秒数があるのに対応する先頭または末尾journey legの有効なstop名を取得できず、segmentを構築できない場合も同様にHTTP 502を返さなければならない（MUST）。
+
 #### Scenario: guidance-plan optionsを複数候補へ変換する
 
 - **WHEN** Transit APIが1件から3件まで有効なoptionsを返し、それぞれに公共交通legがある
@@ -284,6 +288,46 @@ coverage noticeのうち、`severity=warning`かつ既知の `loadedDataScope`�
 
 - **WHEN** Transit APIが不正なJSONまたは共通Routeへ変換できない形式を返す
 - **THEN** APIは外部経路サービスまたは変換エラーとしてHTTP 502を返す
+
+#### Scenario: geographic originのaccess walkをRoute segmentへ変換する
+
+- **WHEN** Places由来のorigin表示名があり、Transit journeyに正の `accessWalkSecs` と有効な最初のlegの `from.name` がある
+- **THEN** システムはjourney legsの前にorigin表示名からそのstop名までの `WALK` segmentを追加し、departure/arrival時刻と切り上げたdurationをaccess秒数に合わせる
+
+#### Scenario: geographic destinationのegress walkをRoute segmentへ変換する
+
+- **WHEN** Places由来のdestination表示名があり、Transit journeyに正の `egressWalkSecs` と有効な最後のlegの `to.name` がある
+- **THEN** システムはjourney legsの後にそのstop名からdestination表示名までの `WALK` segmentを追加し、departure/arrival時刻と切り上げたdurationをegress秒数に合わせる
+
+#### Scenario: access walk終了後に待ち時間がある
+
+- **WHEN** `journey.departureSecs + accessWalkSecs` が最初のlegの出発時刻より前である
+- **THEN** access WALKの到着時刻は秒数から算出した時刻を保ち、差分を徒歩時間またはsegment durationへ含めない
+
+#### Scenario: 両端または片端の外部徒歩を変換する
+
+- **WHEN** Transit journeyにaccess walk、egress walk、または両方の有効な秒数がある
+- **THEN** システムは該当する側にのみ既存 `WALK` segmentを追加し、他方の端点とjourney legsを変更しない
+
+#### Scenario: access/egress時間をroute全体の徒歩指標へ重ねて加算しない
+
+- **WHEN** optionに `metrics.walkSecs` と正のaccess/egress秒数が含まれる
+- **THEN** `walk_minutes` は従来どおり `metrics.walkSecs` から算出し、access/egress秒数を二重加算しない
+
+#### Scenario: access/egress秒数がないか0である
+
+- **WHEN** `accessWalkSecs` または `egressWalkSecs` が欠落または0である
+- **THEN** システムはその端に外部 `WALK` segmentを追加せず、Transitが返す既存legsを維持する
+
+#### Scenario: access/egress情報がmalformedまたは生成不能である
+
+- **WHEN** access/egress秒数が負、数値以外、NaN、無限大、journey時間と不整合、または正の秒数に必要な隣接stop名が欠けている
+- **THEN** システムは徒歩segmentを推測または黙って省略せずresponse errorとして扱い、`POST /api/route-search` はHTTP 502を返す
+
+#### Scenario: 駅endpointへsnapした場所にTransit由来の徒歩時間がない
+
+- **WHEN** Placesの駅・停留所名が既存の保守的な名前一致でplanner endpointへsnapされ、Transit responseに正のaccess/egress秒数がない
+- **THEN** システムは距離だけを根拠にWALK segmentを生成せず、駅・停留所指定間の無意味な徒歩区間を表示しない
 
 #### Scenario: Providerとの通信に失敗する
 
