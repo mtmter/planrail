@@ -652,7 +652,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     );
   }
 
-  async function handleRouteSearch(eventId, direction, externalPlace) {
+  async function handleRouteSearch(eventId, direction, externalPlace, eventPlaceOverride) {
     let response;
     const event = events.find((currentEvent) => currentEvent.id === eventId);
 
@@ -660,7 +660,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
       throw new Error("予定が見つかりません");
     }
 
-    const eventPlace = eventToPlace(event);
+    const eventPlace = eventPlaceOverride ?? eventToPlace(event);
     const isOutbound = direction === "outbound";
     const startDate = parseDateTime(event.start_at);
     const arrivalAt = startDate
@@ -739,15 +739,15 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     return saved;
   }
 
-  async function handleRouteRegister(eventId, direction, route, externalPlace) {
+  async function handleRouteRegister(eventId, direction, route, externalPlace, eventPlaceOverride) {
     const event = events.find((candidate) => candidate.id === eventId);
     if (!event) throw new Error("予定が見つかりません");
     const isOutbound = direction === "outbound";
     const savedTravelPlan = await createFirestoreTravelBlock(
       user.uid,
       routeToTravelBlock(route, {
-        origin: isOutbound ? eventToPlace(event) : externalPlace,
-        destination: isOutbound ? externalPlace : eventToPlace(event),
+        origin: isOutbound ? (eventPlaceOverride ?? eventToPlace(event)) : externalPlace,
+        destination: isOutbound ? externalPlace : (eventPlaceOverride ?? eventToPlace(event)),
         originEventId: isOutbound ? eventId : null,
         destinationEventId: isOutbound ? null : eventId,
         tripId: event.trip_id,

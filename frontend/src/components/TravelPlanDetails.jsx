@@ -6,6 +6,7 @@ function TravelPlanDetails({
   onSearchInbound,
   onSearchOutbound,
   onSelect,
+  requiresPlaceReselection = false,
 }) {
   return (
     <section className="travel-plan-section">
@@ -40,6 +41,11 @@ function TravelPlanDetails({
           帰りの経路を検索
         </button>
       </div>
+      {requiresPlaceReselection && (
+        <p className="travel-plan-empty">
+          再検索時に予定の場所をPlaces候補から選択してください。
+        </p>
+      )}
     </section>
   );
 }

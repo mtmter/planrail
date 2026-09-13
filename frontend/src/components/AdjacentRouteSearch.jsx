@@ -10,6 +10,15 @@ function AdjacentRouteSearch({ anchor, direction, onBack, onRegister, onSearch }
   const [errorMessage, setErrorMessage] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const isBefore = direction === "before";
+  const savedAnchorPlace = isBefore ? anchor.destination : anchor.origin;
+  const [anchorPlaceText, setAnchorPlaceText] = useState(getPlaceLabel(savedAnchorPlace));
+  const [selectedAnchorPlace, setSelectedAnchorPlace] = useState(
+    hasPlaceCoordinates(savedAnchorPlace) ? savedAnchorPlace : null,
+  );
+
+  function routeAnchorPlace() {
+    return selectedAnchorPlace ?? savedAnchorPlace;
+  }
 
   function externalPlace() {
     return selectedPlace
@@ -26,8 +35,8 @@ function AdjacentRouteSearch({ anchor, direction, onBack, onRegister, onSearch }
   function request() {
     const place = externalPlace();
     return {
-      origin: isBefore ? place : anchor.destination,
-      destination: isBefore ? anchor.origin : place,
+      origin: isBefore ? place : routeAnchorPlace(),
+      destination: isBefore ? routeAnchorPlace() : place,
       timing: {
         type: isBefore ? "arrival" : "departure",
         at: isBefore ? anchor.start_at : anchor.end_at,
@@ -41,8 +50,7 @@ function AdjacentRouteSearch({ anchor, direction, onBack, onRegister, onSearch }
       setErrorMessage(isBefore ? "前区間の出発地を入力してください" : "後区間の目的地を入力してください");
       return;
     }
-    const anchorPlace = isBefore ? anchor.destination : anchor.origin;
-    if (!selectedPlace || !hasPlaceCoordinates(selectedPlace) || !hasPlaceCoordinates(anchorPlace)) {
+    if (!selectedPlace || !hasPlaceCoordinates(selectedPlace) || !hasPlaceCoordinates(routeAnchorPlace())) {
       setErrorMessage("経路検索には、両方の地点をPlaces候補から選択する必要があります。");
       return;
     }
@@ -65,6 +73,7 @@ function AdjacentRouteSearch({ anchor, direction, onBack, onRegister, onSearch }
 
   return <form className="route-search-form" onSubmit={handleSearch}>
     <p>{isBefore ? `${getPlaceLabel(anchor.origin)}へ到着する前区間` : `${getPlaceLabel(anchor.destination)}から出発する後区間`}を検索します。</p>
+    {!hasPlaceCoordinates(savedAnchorPlace) && <div className="modal-form-field"><label htmlFor="adjacent-route-anchor-place">移動の{isBefore ? "到着地" : "出発地"}（再選択）</label><PlaceAutocompleteInput id="adjacent-route-anchor-place" value={anchorPlaceText} disabled={isBusy} onChange={(value) => { setAnchorPlaceText(value); setSelectedAnchorPlace(null); setErrorMessage(""); }} onPlaceSelect={(place) => { setSelectedAnchorPlace(place); if (place) setAnchorPlaceText(place.name); }} /><p className="place-autocomplete-status">再検索のため、保存済み地点を候補から選択してください。</p></div>}
     <div className="modal-form-field"><label htmlFor="adjacent-route-place">{isBefore ? "出発地" : "目的地"}</label><PlaceAutocompleteInput id="adjacent-route-place" value={placeText} autoFocus disabled={isBusy} onChange={(value) => { setPlaceText(value); setSelectedPlace(null); }} onPlaceSelect={(place) => { setSelectedPlace(place); if (place) setPlaceText(place.name); }} /></div>
     {errorMessage && <p className="modal-error-message">{errorMessage}</p>}
     <div className="modal-actions"><button className="secondary-button" type="button" onClick={onBack}>戻る</button><button className="primary-button" type="submit" disabled={isBusy}>{isBusy ? "検索中..." : "検索する"}</button></div>

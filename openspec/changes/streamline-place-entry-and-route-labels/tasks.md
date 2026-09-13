@@ -17,3 +17,8 @@
 
 - [x] 4.1 Request multiple LS8H journeys with an extended timeout, and select a journey containing public transit over an earlier walk-only journey.
 - [x] 4.2 Add regression coverage for a walk-first response, document the selection behavior, and run backend and frontend verification.
+
+## 5. Route Re-search for Existing Data
+
+- [x] 5.1 Restore route-search entry points in event details and let a coordinate-free saved event place be reselected for that search.
+- [x] 5.2 Let a coordinate-free saved travel-block endpoint be reselected in adjacent-route search, and verify both re-search screens with frontend tests.

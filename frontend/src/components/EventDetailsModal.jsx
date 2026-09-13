@@ -534,21 +534,13 @@ function EventDetailsModal({
               onUpdate={onPreparationUpdate}
             />
 
-            {canSearchRoute ? (
-              <TravelPlanDetails
-                travelBlocks={travelBlocks}
-                onSelect={onTravelBlockSelect}
-                onSearchInbound={() => { setRouteDirection("inbound"); setErrorMessage(""); setMode("route"); }}
-                onSearchOutbound={() => { setRouteDirection("outbound"); setErrorMessage(""); setMode("route"); }}
-              />
-            ) : (
-              <section className="travel-plan-section">
-                <h3>移動予定</h3>
-                <p className="travel-plan-empty">
-                  経路検索にはPlaces候補から選択した場所が必要です
-                </p>
-              </section>
-            )}
+            <TravelPlanDetails
+              travelBlocks={travelBlocks}
+              onSelect={onTravelBlockSelect}
+              onSearchInbound={() => { setRouteDirection("inbound"); setErrorMessage(""); setMode("route"); }}
+              onSearchOutbound={() => { setRouteDirection("outbound"); setErrorMessage(""); setMode("route"); }}
+              requiresPlaceReselection={!canSearchRoute}
+            />
 
             {errorMessage && (
               <p className="modal-error-message" role="alert">
