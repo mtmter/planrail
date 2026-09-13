@@ -10,6 +10,7 @@ from route_providers import get_route_provider
 from route_providers.transit_provider import (
     TransitEndpointResolutionError,
     TransitProviderError,
+    TransitTimeoutError,
 )
 
 
@@ -39,6 +40,10 @@ class RouteProviderError(RoutesServiceError):
     """Route Providerの設定またはデータ取得に失敗した。"""
 
 
+class RouteProviderTimeoutError(RoutesServiceError):
+    """Route Providerの経路検索がタイムアウトした。"""
+
+
 def search_route(
     origin,
     destination,
@@ -63,6 +68,8 @@ def search_route(
         )
     except TransitEndpointResolutionError as error:
         raise RouteEndpointResolutionError(str(error)) from error
+    except TransitTimeoutError as error:
+        raise RouteProviderTimeoutError(str(error)) from error
     except TransitProviderError as error:
         raise RouteProviderError(str(error)) from error
     except (OSError, ValueError, NotImplementedError) as error:

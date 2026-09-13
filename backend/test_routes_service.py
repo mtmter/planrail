@@ -53,6 +53,40 @@ def reverse_payload(name, endpoint="demo:station", kind="station", distance=20):
 
 
 class TransitRouteConverterTest(unittest.TestCase):
+    def test_search_route_preserves_timeout_as_distinct_service_error(self):
+        transit_timeout = transit_provider.TransitTimeoutError(
+            "Transit guidance planがタイムアウトしました"
+        )
+        provider = Mock(side_effect=transit_timeout)
+
+        with patch("routes_service.get_route_provider", return_value=provider):
+            with self.assertRaises(
+                routes_service.RouteProviderTimeoutError
+            ) as context:
+                routes_service.search_route(
+                    "33.596,130.215",
+                    "33.586,130.398",
+                    datetime(2026, 8, 25, 10, 12),
+                )
+
+        self.assertIs(context.exception.__cause__, transit_timeout)
+        self.assertNotIsInstance(context.exception, routes_service.RouteProviderError)
+
+        provider.side_effect = transit_provider.TransitConnectionError(
+            "Transit APIへ接続できませんでした"
+        )
+        with patch("routes_service.get_route_provider", return_value=provider):
+            with self.assertRaises(routes_service.RouteProviderError) as context:
+                routes_service.search_route(
+                    "33.596,130.215",
+                    "33.586,130.398",
+                    datetime(2026, 8, 25, 10, 12),
+                )
+
+        self.assertIsInstance(
+            context.exception.__cause__, transit_provider.TransitConnectionError
+        )
+
     def test_mock_fixture_uses_transit_converter_and_common_route_shape(self):
         result = routes_service.search_route(
             "33.596,130.215",
@@ -491,6 +525,14 @@ class TransitProviderTest(unittest.TestCase):
         self.assertEqual(result["options"][0]["id"], "demo-option-1")
         self.assertEqual(mock_get.call_count, 3)
         self.assertEqual(
+            mock_get.call_args_list[0].kwargs["timeout"],
+            10.0,
+        )
+        self.assertEqual(
+            mock_get.call_args_list[1].kwargs["timeout"],
+            10.0,
+        )
+        self.assertEqual(
             mock_get.call_args_list[0].kwargs["params"],
             {
                 "lat": 33.596,
@@ -521,7 +563,10 @@ class TransitProviderTest(unittest.TestCase):
                 "toLabel": "Garraway F",
             },
         )
-        self.assertEqual(plan_request.kwargs["timeout"], 10.0)
+        self.assertEqual(
+            plan_request.kwargs["timeout"],
+            30.0,
+        )
 
     @patch("route_providers.transit_provider.httpx.get")
     def test_nearest_matching_station_wins(self, mock_get):
@@ -623,6 +668,14 @@ class TransitProviderTest(unittest.TestCase):
                     origin_display_name="九大学研都市駅",
                 )
                 self.assertEqual(mock_get.call_count, 2)
+                self.assertEqual(
+                    mock_get.call_args_list[0].kwargs["timeout"],
+                    10.0,
+                )
+                self.assertEqual(
+                    mock_get.call_args_list[1].kwargs["timeout"],
+                    30.0,
+                )
                 self.assertEqual(
                     mock_get.call_args_list[1].kwargs["params"]["from"],
                     "geo:33.596,130.215",

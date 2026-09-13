@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timedelta
 
@@ -8,15 +9,22 @@ from pydantic import BaseModel, Field
 from routes_service import (
     RouteEndpointResolutionError,
     RouteNotFoundError,
+    RouteProviderTimeoutError,
     RoutesServiceError,
     search_route,
 )
+from route_providers.transit_provider import TransitHttpError
 
 
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+logger = logging.getLogger(__name__)
+
+
+class _SafeLoggedException(Exception):
+    """Cause types and tracebacks for logs without raw exception messages."""
 
 
 def get_cors_origins():
@@ -116,6 +124,42 @@ def format_route_coordinates(latitude, longitude):
     return f"{latitude},{longitude}"
 
 
+def transit_http_status_code(error):
+    current = error
+    seen = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, TransitHttpError):
+            return current.status_code
+        current = current.__cause__ or current.__context__
+    return None
+
+
+def log_route_search_failure(error, response_status):
+    safe_error = safe_exception_chain(error)
+    try:
+        raise safe_error
+    except _SafeLoggedException:
+        logger.exception(
+            "POST /api/route-search failed; service_error=%s response_status=%s "
+            "transit_http_status_code=%s",
+            type(error).__name__,
+            response_status,
+            transit_http_status_code(error),
+        )
+
+
+def safe_exception_chain(error):
+    """Keep cause types and traceback frames while omitting exception messages."""
+    safe_error = _SafeLoggedException(type(error).__name__)
+    safe_error.__traceback__ = error.__traceback__
+    safe_error.__suppress_context__ = True
+    cause = error.__cause__ or error.__context__
+    if cause is not None:
+        safe_error.__cause__ = safe_exception_chain(cause)
+    return safe_error
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
@@ -185,7 +229,14 @@ def search_direct_route(request: DirectRouteSearchRequest):
             status_code=400,
             detail=str(error),
         ) from error
+    except RouteProviderTimeoutError as error:
+        log_route_search_failure(error, 504)
+        raise HTTPException(
+            status_code=504,
+            detail="経路検索に時間がかかりすぎました。もう一度お試しください。",
+        ) from error
     except RoutesServiceError as error:
+        log_route_search_failure(error, 502)
         raise HTTPException(
             status_code=502,
             detail="経路検索サービスとの通信に失敗しました",

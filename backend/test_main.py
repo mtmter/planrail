@@ -1,6 +1,6 @@
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from fastapi import HTTPException
 
@@ -9,6 +9,11 @@ from routes_service import (
     RouteEndpointResolutionError,
     RouteNotFoundError,
     RouteProviderError,
+    RouteProviderTimeoutError,
+)
+from route_providers.transit_provider import (
+    TransitHttpError,
+    TransitTimeoutError,
 )
 
 
@@ -175,17 +180,115 @@ class RouteSearchApiTest(unittest.TestCase):
             (RouteNotFoundError("経路が見つかりませんでした"), 404),
             (RouteEndpointResolutionError("Places候補を選択してください"), 400),
             (RouteProviderError("接続できませんでした"), 502),
+            (RouteProviderTimeoutError("Transitがタイムアウトしました"), 504),
         ]
 
-        for service_error, expected_status in error_cases:
-            with self.subTest(expected_status=expected_status):
-                with (
-                    patch("main.search_route", side_effect=service_error),
-                    self.assertRaises(HTTPException) as context,
-                ):
-                    main.search_direct_route(create_route_request())
+        with self.assertLogs("main", level="ERROR"):
+            for service_error, expected_status in error_cases:
+                with self.subTest(expected_status=expected_status):
+                    with (
+                        patch("main.search_route", side_effect=service_error),
+                        self.assertRaises(HTTPException) as context,
+                    ):
+                        main.search_direct_route(create_route_request())
 
-                self.assertEqual(context.exception.status_code, expected_status)
+                    self.assertEqual(context.exception.status_code, expected_status)
+
+    def test_transit_guidance_timeout_becomes_504_at_route_search_api(self):
+        transit_timeout = TransitTimeoutError("Transit guidance planがタイムアウトしました")
+        provider = Mock(side_effect=transit_timeout)
+
+        with self.assertLogs("main", level="ERROR"):
+            with (
+                patch("routes_service.get_route_provider", return_value=provider),
+                self.assertRaises(HTTPException) as context,
+            ):
+                main.search_direct_route(create_route_request())
+
+        self.assertEqual(context.exception.status_code, 504)
+        self.assertIsInstance(
+            context.exception.__cause__, RouteProviderTimeoutError
+        )
+        self.assertIs(context.exception.__cause__.__cause__, transit_timeout)
+
+    def test_route_search_logs_exception_chain_without_request_data(self):
+        sensitive_request = {
+            **ROUTE_REQUEST,
+            "origin_name": "USER_NAME_SENTINEL",
+            "origin_place_id": "PLACE_ID_SENTINEL",
+            "origin_lat": 12.345678,
+            "origin_lng": 98.765432,
+            "event": {
+                **ROUTE_REQUEST["event"],
+                "destination_lat": 21.987654,
+                "destination_lng": 87.654321,
+            },
+        }
+        provider_http_error = TransitHttpError(
+            503,
+            "https://transit.invalid/plan?lat=12.345678&placeId=PLACE_ID_SENTINEL "
+            "user=USER_NAME_SENTINEL",
+        )
+        try:
+            raise provider_http_error
+        except TransitHttpError as cause:
+            try:
+                raise RouteProviderError("Transit provider failure") from cause
+            except RouteProviderError as error:
+                service_error = error
+
+        with self.assertLogs("main", level="ERROR") as captured:
+            with (
+                patch("main.search_route", side_effect=service_error),
+                self.assertRaises(HTTPException) as context,
+            ):
+                main.search_direct_route(create_route_request(sensitive_request))
+
+        self.assertEqual(context.exception.status_code, 502)
+        log_output = "\n".join(captured.output)
+        self.assertIn("RouteProviderError", log_output)
+        self.assertIn("TransitHttpError", log_output)
+        self.assertIn("transit_http_status_code=503", log_output)
+        self.assertIn("Traceback (most recent call last)", log_output)
+        for sensitive_value in (
+            "USER_NAME_SENTINEL",
+            "PLACE_ID_SENTINEL",
+            "12.345678",
+            "98.765432",
+            "21.987654",
+            "87.654321",
+        ):
+            self.assertNotIn(sensitive_value, log_output)
+
+    def test_route_search_logs_timeout_chain_for_504(self):
+        transit_error = TransitTimeoutError("Transit guidance planがタイムアウトしました")
+        timeout_message = "read timed out for 21.987654,87.654321"
+        try:
+            raise TimeoutError(timeout_message)
+        except TimeoutError as cause:
+            try:
+                raise transit_error from cause
+            except TransitTimeoutError as cause:
+                try:
+                    raise RouteProviderTimeoutError(str(cause)) from cause
+                except RouteProviderTimeoutError as error:
+                    service_error = error
+
+        with self.assertLogs("main", level="ERROR") as captured:
+            with (
+                patch("main.search_route", side_effect=service_error),
+                self.assertRaises(HTTPException) as context,
+            ):
+                main.search_direct_route(create_route_request())
+
+        self.assertEqual(context.exception.status_code, 504)
+        log_output = "\n".join(captured.output)
+        self.assertIn("RouteProviderTimeoutError", log_output)
+        self.assertIn("TransitTimeoutError", log_output)
+        self.assertIn("TimeoutError", log_output)
+        self.assertIn("Traceback (most recent call last)", log_output)
+        self.assertNotIn("21.987654", log_output)
+        self.assertNotIn("87.654321", log_output)
 
 
 if __name__ == "__main__":

@@ -33,6 +33,7 @@ import {
   parseDateTime,
   toDateTimeInputValue,
 } from "./dateUtils";
+import { requestRouteSearch } from "./routeSearchApi";
 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_API_BASE_URL;
 const PREPARATION_REMINDER_STORAGE_KEY =
@@ -156,19 +157,6 @@ function createInitialValues(date, eventStartMinutes = 9 * 60) {
     eventStartAt: toDateTimeInputValue(eventStart),
     eventEndAt: toDateTimeInputValue(eventEnd),
   };
-}
-
-async function getResponseError(response, defaultMessage) {
-  try {
-    const errorData = await response.json();
-    if (typeof errorData.detail === "string") {
-      return errorData.detail;
-    }
-  } catch {
-    // JSONではないエラーの場合は、画面用の既定メッセージを使います。
-  }
-
-  return defaultMessage;
 }
 
 function ScheduleApp({ authErrorMessage, onLogout, user }) {
@@ -406,48 +394,23 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
   }
 
   async function handleRouteSearch(eventId, originRequest) {
-    let response;
     const event = events.find((currentEvent) => currentEvent.id === eventId);
 
     if (!event) {
       throw new Error("予定が見つかりません");
     }
 
-    try {
-      response = await fetch(`${API_BASE_URL}/route-search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...originRequest,
-          event: {
-            start_at: event.start_at,
-            location_name: event.location_name,
-            destination: event.destination,
-            destination_lat: event.destination_lat,
-            destination_lng: event.destination_lng,
-            arrival_buffer_minutes: event.arrival_buffer_minutes,
-          },
-        }),
-      });
-    } catch {
-      throw new Error("経路検索サービスとの通信に失敗しました");
-    }
-
-    if (!response.ok) {
-      if (response.status === 422) {
-        throw new Error("入力内容を確認してください");
-      }
-
-      if (response.status === 502) {
-        throw new Error("経路検索サービスとの通信に失敗しました");
-      }
-
-      throw new Error(
-        await getResponseError(response, "経路を検索できませんでした"),
-      );
-    }
-
-    return response.json();
+    return requestRouteSearch(`${API_BASE_URL}/route-search`, {
+      ...originRequest,
+      event: {
+        start_at: event.start_at,
+        location_name: event.location_name,
+        destination: event.destination,
+        destination_lat: event.destination_lat,
+        destination_lng: event.destination_lng,
+        arrival_buffer_minutes: event.arrival_buffer_minutes,
+      },
+    });
   }
 
   async function handleRouteRegister(eventId, route) {

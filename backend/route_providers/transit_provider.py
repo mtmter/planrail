@@ -9,7 +9,8 @@ import httpx
 TRANSIT_API_BASE_URL = "https://api.transit.ls8h.com"
 GUIDANCE_PLAN_URL = f"{TRANSIT_API_BASE_URL}/api/v1/guidance/plan"
 PLACES_REVERSE_URL = f"{TRANSIT_API_BASE_URL}/api/v1/places/reverse"
-REQUEST_TIMEOUT_SECONDS = 10.0
+GUIDANCE_PLAN_TIMEOUT_SECONDS = 30.0
+REVERSE_LOOKUP_TIMEOUT_SECONDS = 10.0
 JAPAN_TIMEZONE = ZoneInfo("Asia/Tokyo")
 STATION_REVERSE_RADIUS_METERS = 300
 STATION_REVERSE_LIMIT = 10
@@ -94,6 +95,7 @@ def get_route(
         GUIDANCE_PLAN_URL,
         query_parameters,
         operation="Transit guidance plan",
+        timeout_seconds=GUIDANCE_PLAN_TIMEOUT_SECONDS,
     )
     if not isinstance(response_data, dict):
         raise TransitResponseError(
@@ -140,6 +142,7 @@ def _find_matching_station(latitude, longitude, display_name):
             "limit": STATION_REVERSE_LIMIT,
         },
         operation="Transit reverse places",
+        timeout_seconds=REVERSE_LOOKUP_TIMEOUT_SECONDS,
     )
     if not isinstance(response_data, dict):
         raise TransitResponseError(
@@ -244,12 +247,12 @@ def _api_label(value):
     return label[:120]
 
 
-def _request_json(url, parameters, operation):
+def _request_json(url, parameters, operation, timeout_seconds):
     try:
         response = httpx.get(
             url,
             params=parameters,
-            timeout=REQUEST_TIMEOUT_SECONDS,
+            timeout=timeout_seconds,
         )
     except httpx.TimeoutException as error:
         raise TransitTimeoutError(f"{operation}がタイムアウトしました") from error
