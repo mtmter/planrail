@@ -103,6 +103,20 @@
 - **WHEN** `event.start_at` が `YYYY-MM-DDTHH:mm` として解析できない
 - **THEN** APIはHTTP 400を返す
 
+### Requirement: Transit APIの呼び出しに用途別timeoutを適用する
+
+システムはTransit `/api/v1/guidance/plan` のtimeoutを30秒とし、Transit `/api/v1/places/reverse` のtimeoutを10秒としなければならない（MUST）。reverse lookupは駅・停留所endpointを解決する補助処理であり、timeoutを含むreverse lookupの失敗時は既存どおり `geo:<lat>,<lon>` へフォールバックして経路検索を続けなければならない（MUST）。
+
+#### Scenario: Guidance planを30秒timeoutで呼び出す
+
+- **WHEN** システムがTransit `/api/v1/guidance/plan` へ経路検索を送る
+- **THEN** システムは30秒のtimeoutを適用する
+
+#### Scenario: Reverse lookupを10秒timeoutで呼び出す
+
+- **WHEN** システムがTransit `/api/v1/places/reverse` へ地点解決を送る
+- **THEN** システムは10秒のtimeoutを適用し、timeout時はその地点の `geo:<lat>,<lon>` で経路検索を続ける
+
 ### Requirement: 到着希望日時を計算する
 
 バックエンドは予定開始日時から到着余裕時間を減算してTransit APIへ渡す到着希望日時を計算しなければならない（MUST）。到着余裕時間が未設定の場合は0分として扱わなければならない（MUST）。日時は日本時間の `date=YYYYMMDD` と `time=HH:MM` に分け、`/api/v1/guidance/plan` の `type=arrival` で問い合わせなければならない（MUST）。問い合わせでは `numItineraries=3`、`strategy=balanced`、`live=false`、`tracking=none` を指定する。
@@ -273,12 +287,17 @@ coverage noticeのうち、`severity=warning`かつ既知の `loadedDataScope`�
 
 #### Scenario: Providerとの通信に失敗する
 
-- **WHEN** Transit APIがタイムアウト、接続失敗、またはHTTPエラーを返す
+- **WHEN** Transit `/api/v1/guidance/plan` がtimeoutする
+- **THEN** APIはtimeout専用の経路検索エラーとしてHTTP 504を返す
+
+#### Scenario: Transit providerへの接続または応答に失敗する
+
+- **WHEN** Transit APIへの接続失敗、HTTPエラー、不正なJSON、または不正なレスポンス形式が発生する
 - **THEN** APIは外部経路サービスエラーとしてHTTP 502を返す
 
 #### Scenario: Providerとの通信または変換に失敗する
 
-- **WHEN** Transit APIとの通信またはguidance-planから共通Routeへの変換に失敗する
+- **WHEN** guidance-plan timeout以外のprovider failure、またはguidance-planから共通Routeへの変換エラーが発生する
 - **THEN** APIは外部経路サービスまたは変換エラーとしてHTTP 502を返す
 
 #### Scenario: 候補を検索結果に表示する
@@ -290,6 +309,59 @@ coverage noticeのうち、`severity=warning`かつ既知の `loadedDataScope`�
 
 - **WHEN** 経路検索APIが共通RouteCandidate一覧を返す
 - **THEN** システムは候補summary card、選択中候補の縦型Route表示、「この経路を登録」操作を表示し、coverage warningがあれば同じ検索結果画面へ表示する
+
+### Requirement: 経路検索エラーをHTTP statusに応じて表示し、自動再試行しない
+
+フロントエンドはHTTP 504に「経路検索に時間がかかりすぎました。もう一度お試しください。」を表示し、HTTP 502に「経路検索サービスでエラーが発生しました。もう一度お試しください。」を表示しなければならない（MUST）。HTTP 400および404では既存どおりAPIの `detail` を表示し、`detail` がない場合は「経路を検索できませんでした」を表示しなければならない（MUST）。HTTP 422では既存どおり「入力内容を確認してください」を表示しなければならない（MUST）。システムは経路検索リクエストを自動再試行してはならず、再検索はユーザーが検索操作を再度行った場合に限らなければならない（MUST）。
+
+#### Scenario: 経路検索がtimeoutする
+
+- **WHEN** `/api/route-search` がHTTP 504を返す
+- **THEN** フロントエンドは「経路検索に時間がかかりすぎました。もう一度お試しください。」を表示し、自動で再検索しない
+
+#### Scenario: 経路検索サービスでエラーが発生する
+
+- **WHEN** `/api/route-search` がHTTP 502を返す
+- **THEN** フロントエンドは「経路検索サービスでエラーが発生しました。もう一度お試しください。」を表示する
+
+#### Scenario: 400と404で既存のAPI detailを表示する
+
+- **WHEN** `/api/route-search` がHTTP 400または404を返し、レスポンスに文字列の `detail` がある
+- **THEN** フロントエンドはその `detail` を表示する
+
+#### Scenario: 400または404にdetailがない
+
+- **WHEN** `/api/route-search` がHTTP 400または404を返し、文字列の `detail` がない
+- **THEN** フロントエンドは「経路を検索できませんでした」を表示する
+
+#### Scenario: 422の既存エラーを表示する
+
+- **WHEN** `/api/route-search` がHTTP 422を返す
+- **THEN** フロントエンドは「入力内容を確認してください」を表示する
+
+#### Scenario: ユーザーがtimeout後に再検索する
+
+- **WHEN** HTTP 504の表示後にユーザーが検索操作を再度行う
+- **THEN** システムはそのユーザー操作に対する検索を行う
+
+### Requirement: 5xxへ変換する経路検索エラーを診断可能なログへ記録する
+
+バックエンドは経路検索エラーをHTTP 5xxへ変換するとき、エラー発生箇所、例外種別、原因、およびstack traceを運用ログへ記録しなければならない（MUST）。Transit HTTP errorの場合は、Transitが返したstatus codeをログから確認可能にしなければならない（MUST）。ログへリクエスト本文全体、ユーザー情報、Place ID、または緯度・経度を記録してはならない（MUST NOT）。
+
+#### Scenario: 経路検索timeoutをHTTP 504へ変換する
+
+- **WHEN** Transit guidance planのtimeoutをHTTP 504へ変換する
+- **THEN** バックエンドはtimeoutの例外種別、元のcause、およびstack traceを含む診断ログを出力する
+
+#### Scenario: Provider failureをHTTP 502へ変換する
+
+- **WHEN** provider、レスポンス、または変換エラーをHTTP 502へ変換し、Transit HTTP status codeがある
+- **THEN** バックエンドは例外chainとstack traceを記録し、Transit HTTP status codeをログから確認可能にする
+
+#### Scenario: 経路検索の診断ログへ機微なリクエスト情報を含めない
+
+- **WHEN** バックエンドが経路検索の5xx診断ログを出力する
+- **THEN** ログにリクエスト本文全体、ユーザー情報、Place ID、または緯度・経度を含めない
 
 ### Requirement: 経路結果を登録前に表示する
 
