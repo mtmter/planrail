@@ -156,29 +156,3 @@ export function formatWeekTitle(weekDates) {
 export function formatDayTitle(date) {
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日（${WEEKDAY_NAMES[date.getDay()]}）`;
 }
-
-export function formatTaskDue(value) {
-  const date = parseDateTime(value);
-
-  if (!date) {
-    return "期限なし";
-  }
-
-  return `${date.getMonth() + 1}月${date.getDate()}日（${WEEKDAY_NAMES[date.getDay()]}） ${formatTime(value)}`;
-}
-
-export function sortTasksByDueDate(tasks) {
-  return [...tasks].sort((firstTask, secondTask) => {
-    if (!firstTask.due_at && !secondTask.due_at) {
-      return firstTask.id - secondTask.id;
-    }
-    if (!firstTask.due_at) {
-      return 1;
-    }
-    if (!secondTask.due_at) {
-      return -1;
-    }
-
-    return firstTask.due_at.localeCompare(secondTask.due_at);
-  });
-}

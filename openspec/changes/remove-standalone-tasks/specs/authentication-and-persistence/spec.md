@@ -1,29 +1,4 @@
-# Authentication and Persistence Specification
-
-## Purpose
-
-PlanRailの利用者認証、ユーザー別データ保存、およびFirestoreへのアクセス境界を定義する。
-
-## Requirements
-
-### Requirement: Googleアカウントで認証する
-
-システムはFirebase AuthenticationのGoogleポップアップ認証を提供し、認証済みユーザーだけにスケジュール画面を表示しなければならない（MUST）。
-
-#### Scenario: 未認証でアプリを開く
-
-- **WHEN** Firebaseの認証状態にユーザーが存在しない
-- **THEN** システムはGoogleログインボタンを含むログイン画面を表示する
-
-#### Scenario: 認証済みでアプリを開く
-
-- **WHEN** Firebaseの認証状態にユーザーが存在する
-- **THEN** システムはそのユーザーのスケジュール画面を表示する
-
-#### Scenario: ログアウトする
-
-- **WHEN** ユーザーがアカウントメニューからログアウトする
-- **THEN** システムはFirebaseからログアウトし、ログイン画面へ戻る
+## MODIFIED Requirements
 
 ### Requirement: データをユーザーごとに分離する
 
@@ -73,12 +48,3 @@ users/{uid}/travelPlans/{eventId}
 
 - **WHEN** 認証済みユーザーが検索結果を予定の移動予定として登録する
 - **THEN** フロントエンドはそのユーザーの `travelPlans` サブコレクションへ直接保存する
-
-### Requirement: FastAPIの公開範囲を限定する
-
-FastAPIはアプリ用APIとしてヘルスチェックと経路検索だけを公開しなければならない（MUST）。
-
-#### Scenario: API一覧を確認する
-
-- **WHEN** `/api/` 以下のルートを列挙する
-- **THEN** `GET /api/health` と `POST /api/route-search` だけが存在する

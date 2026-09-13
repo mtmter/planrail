@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
-import AddItemModal from "./components/AddItemModal";
+import AddEventModal from "./components/AddEventModal";
 import AccountMenu from "./components/AccountMenu";
 import CalendarToolbar from "./components/CalendarToolbar";
 import DayCalendar from "./components/DayCalendar";
@@ -9,23 +9,18 @@ import MiniCalendar from "./components/MiniCalendar";
 import MonthCalendar from "./components/MonthCalendar";
 import PreparationReminderList from "./components/PreparationReminderList";
 import PreparationReminderSettingsModal from "./components/PreparationReminderSettingsModal";
-import TaskDetailsModal from "./components/TaskDetailsModal";
-import TaskList from "./components/TaskList";
 import WeekCalendar from "./components/WeekCalendar";
 import useAuth from "./auth/useAuth";
 import {
   createEvent as createFirestoreEvent,
   createPreparation as createFirestorePreparation,
-  createTask as createFirestoreTask,
   deleteEvent as deleteFirestoreEvent,
   deletePreparation as deleteFirestorePreparation,
-  deleteTask as deleteFirestoreTask,
   getTravelPlan as getFirestoreTravelPlan,
   loadScheduleData,
   saveTravelPlan as saveFirestoreTravelPlan,
   updateEvent as updateFirestoreEvent,
   updatePreparation as updateFirestorePreparation,
-  updateTask as updateFirestoreTask,
 } from "./firestoreService";
 import {
   addDays,
@@ -153,24 +148,13 @@ function createDateAtMinutes(date, minutes) {
   return dateAtTime;
 }
 
-function createInitialValues(
-  date,
-  itemType,
-  eventStartMinutes = 9 * 60,
-  taskDueMinutes = 23 * 60 + 45,
-) {
+function createInitialValues(date, eventStartMinutes = 9 * 60) {
   const eventStart = createDateAtMinutes(date, eventStartMinutes);
   const eventEnd = new Date(eventStart.getTime() + 60 * 60 * 1000);
-  const taskDue =
-    taskDueMinutes === null
-      ? ""
-      : toDateTimeInputValue(createDateAtMinutes(date, taskDueMinutes));
 
   return {
-    itemType,
     eventStartAt: toDateTimeInputValue(eventStart),
     eventEndAt: toDateTimeInputValue(eventEnd),
-    taskDueAt: taskDue,
   };
 }
 
@@ -195,15 +179,12 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
   const [events, setEvents] = useState([]);
-  const [tasks, setTasks] = useState([]);
   const [preparations, setPreparations] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [preparationErrorMessage, setPreparationErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [updatingTaskId, setUpdatingTaskId] = useState(null);
   const [addModalValues, setAddModalValues] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [selectedTask, setSelectedTask] = useState(null);
   const [routeSearchResult, setRouteSearchResult] = useState(null);
   const [isReminderSettingsOpen, setIsReminderSettingsOpen] = useState(false);
   const [preparationReminderMinutes, setPreparationReminderMinutes] = useState(
@@ -216,7 +197,6 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
       try {
         const scheduleData = await loadScheduleData(user.uid);
         setEvents(scheduleData.events);
-        setTasks(scheduleData.tasks);
         setPreparations(scheduleData.preparations);
         setPreparationErrorMessage(
           scheduleData.preparations === null
@@ -296,7 +276,6 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     try {
       const scheduleData = await loadScheduleData(user.uid);
       setEvents(scheduleData.events);
-      setTasks(scheduleData.tasks);
       setPreparations(scheduleData.preparations);
       setPreparationErrorMessage(
         scheduleData.preparations === null
@@ -310,67 +289,8 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     }
   }
 
-  async function handleTaskToggle(task) {
-    setUpdatingTaskId(task.id);
-    setErrorMessage("");
-
-    try {
-      const updatedTask = await updateFirestoreTask(user.uid, task.id, {
-        title: task.title,
-        due_at: task.due_at,
-        description: task.description,
-        completed: !task.completed,
-      });
-      setTasks((currentTasks) =>
-        currentTasks.map((currentTask) =>
-          currentTask.id === updatedTask.id ? updatedTask : currentTask,
-        ),
-      );
-    } catch (error) {
-      setErrorMessage(error.message);
-    } finally {
-      setUpdatingTaskId(null);
-    }
-  }
-
-  async function handleUpdateTask(taskId, taskData) {
-    try {
-      const updatedTask = await updateFirestoreTask(
-        user.uid,
-        taskId,
-        taskData,
-      );
-      setTasks((currentTasks) =>
-        currentTasks.map((currentTask) =>
-          currentTask.id === updatedTask.id ? updatedTask : currentTask,
-        ),
-      );
-      setSelectedTask(updatedTask);
-    } catch {
-      throw new Error("タスク更新の通信に失敗しました");
-    }
-  }
-
-  async function handleDeleteTask(taskId) {
-    try {
-      await deleteFirestoreTask(user.uid, taskId);
-    } catch {
-      throw new Error("タスク削除の通信に失敗しました");
-    }
-
-    setTasks((currentTasks) =>
-      currentTasks.filter((currentTask) => currentTask.id !== taskId),
-    );
-    setSelectedTask(null);
-  }
-
   function handleAddButtonClick() {
     const today = new Date();
-
-    if (activeView === "tasks") {
-      setAddModalValues(createInitialValues(today, "task", 9 * 60, null));
-      return;
-    }
 
     if (activeView === "month") {
       const isCurrentMonth =
@@ -379,12 +299,12 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
       const targetDate = isCurrentMonth
         ? today
         : new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-      setAddModalValues(createInitialValues(targetDate, "event"));
+      setAddModalValues(createInitialValues(targetDate));
       return;
     }
 
     if (activeView === "day") {
-      setAddModalValues(createInitialValues(selectedDate, "event"));
+      setAddModalValues(createInitialValues(selectedDate));
       return;
     }
 
@@ -392,29 +312,20 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     const targetDate = weekDates.some((date) => isSameDay(date, today))
       ? today
       : weekDates[0];
-    setAddModalValues(createInitialValues(targetDate, "event"));
+    setAddModalValues(createInitialValues(targetDate));
   }
 
   function handleMonthDateClick(date) {
-    setAddModalValues(createInitialValues(date, "event"));
+    setAddModalValues(createInitialValues(date));
   }
 
   function handleWeekTimeClick(date, startMinutes) {
-    setAddModalValues(
-      createInitialValues(date, "event", startMinutes, startMinutes),
-    );
+    setAddModalValues(createInitialValues(date, startMinutes));
   }
 
-  async function handleCreateItem(itemType, itemData) {
-    const createdItem =
-      itemType === "event"
-        ? await createFirestoreEvent(user.uid, itemData)
-        : await createFirestoreTask(user.uid, itemData);
-    if (itemType === "event") {
-      setEvents((currentEvents) => [...currentEvents, createdItem]);
-    } else {
-      setTasks((currentTasks) => [...currentTasks, createdItem]);
-    }
+  async function handleCreateEvent(eventData) {
+    const createdEvent = await createFirestoreEvent(user.uid, eventData);
+    setEvents((currentEvents) => [...currentEvents, createdEvent]);
     setAddModalValues(null);
   }
 
@@ -555,9 +466,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
   );
 
   return (
-    <div
-      className={`schedule-app${activeView !== "tasks" ? " calendar-view-active" : ""}`}
-    >
+    <div className="schedule-app calendar-view-active">
       <header className="app-header">
         <div className="app-brand">
           <span className="app-logo" aria-hidden="true">
@@ -644,13 +553,6 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
             >
               日
             </button>
-            <button
-              className={activeView === "tasks" ? "is-active" : ""}
-              type="button"
-              onClick={() => setActiveView("tasks")}
-            >
-              タスク
-            </button>
           </nav>
           <button
             className="reminder-settings-button"
@@ -698,13 +600,6 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
       <main className="app-content">
         {isLoading ? (
           <p className="status-message">読み込み中...</p>
-        ) : activeView === "tasks" ? (
-          <TaskList
-            tasks={tasks}
-            updatingTaskId={updatingTaskId}
-            onTaskSelect={setSelectedTask}
-            onTaskToggle={handleTaskToggle}
-          />
         ) : (
           <div className="calendar-page-layout">
             <aside className="calendar-sidebar" aria-label="日付と準備案内">
@@ -727,28 +622,22 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
               {activeView === "month" ? (
                 <MonthCalendar
                   events={events}
-                  tasks={tasks}
                   selectedDate={selectedDate}
                   onDateClick={handleMonthDateClick}
                   onEventClick={setSelectedEvent}
-                  onTaskClick={setSelectedTask}
                 />
               ) : activeView === "week" ? (
                 <WeekCalendar
                   events={events}
-                  tasks={tasks}
                   selectedDate={selectedDate}
                   onEventClick={setSelectedEvent}
-                  onTaskClick={setSelectedTask}
                   onTimeClick={handleWeekTimeClick}
                 />
               ) : (
                 <DayCalendar
                   events={events}
-                  tasks={tasks}
                   selectedDate={selectedDate}
                   onEventClick={setSelectedEvent}
-                  onTaskClick={setSelectedTask}
                   onTimeClick={handleWeekTimeClick}
                 />
               )}
@@ -758,10 +647,10 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
       </main>
 
       {addModalValues && (
-        <AddItemModal
+        <AddEventModal
           initialValues={addModalValues}
           onClose={() => setAddModalValues(null)}
-          onSubmit={handleCreateItem}
+          onSubmit={handleCreateEvent}
         />
       )}
 
@@ -799,15 +688,6 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
         />
       )}
 
-      {selectedTask && (
-        <TaskDetailsModal
-          key={selectedTask.id}
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
-          onDelete={handleDeleteTask}
-          onUpdate={handleUpdateTask}
-        />
-      )}
     </div>
   );
 }
@@ -897,7 +777,7 @@ function App() {
             P
           </span>
           <h1 id="login-title">PlanRail</h1>
-          <p>予定とタスクをまとめて管理するスケジュール帳</p>
+          <p>予定に向かうための移動と準備を支援するスケジュール帳</p>
           {authErrorMessage && (
             <p className="auth-error-message" role="alert">
               {authErrorMessage}

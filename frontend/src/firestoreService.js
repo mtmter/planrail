@@ -34,13 +34,12 @@ async function getCollectionData(uid, collectionName) {
 }
 
 export async function loadScheduleData(uid) {
-  const [events, tasks, preparations] = await Promise.all([
+  const [events, preparations] = await Promise.all([
     getCollectionData(uid, "events"),
-    getCollectionData(uid, "tasks"),
     getCollectionData(uid, "preparations"),
   ]);
 
-  return { events, preparations, tasks };
+  return { events, preparations };
 }
 
 export async function createEvent(uid, eventData) {
@@ -71,24 +70,6 @@ export async function deleteEvent(uid, eventId) {
   batch.delete(userDocument(uid, "travelPlans", eventId));
   batch.delete(userDocument(uid, "events", eventId));
   await batch.commit();
-}
-
-export async function createTask(uid, taskData) {
-  const documentData = { ...taskData, completed: false };
-  const documentReference = await addDoc(
-    userCollection(uid, "tasks"),
-    documentData,
-  );
-  return { id: documentReference.id, ...documentData };
-}
-
-export async function updateTask(uid, taskId, taskData) {
-  await updateDoc(userDocument(uid, "tasks", taskId), taskData);
-  return { id: String(taskId), ...taskData };
-}
-
-export async function deleteTask(uid, taskId) {
-  await deleteDoc(userDocument(uid, "tasks", taskId));
 }
 
 export async function createPreparation(uid, eventId, title) {

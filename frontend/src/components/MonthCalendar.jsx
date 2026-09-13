@@ -17,32 +17,30 @@ const VISIBLE_ITEMS_WITH_SUMMARY_IN_SIX_WEEK_MONTH = 2;
 
 function MonthCalendar({
   events,
-  tasks,
   selectedDate,
   onDateClick,
   onEventClick,
-  onTaskClick,
 }) {
   const calendarDates = getMonthDates(selectedDate);
   const hasSixWeeks = calendarDates.length === 42;
-  const [dayItemsPopup, setDayItemsPopup] = useState(null);
+  const [dayEventsPopup, setDayEventsPopup] = useState(null);
   const today = new Date();
 
   useEffect(() => {
-    if (!dayItemsPopup) {
+    if (!dayEventsPopup) {
       return undefined;
     }
 
     function handleKeyDown(event) {
       if (event.key === "Escape") {
-        setDayItemsPopup(null);
+        setDayEventsPopup(null);
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
 
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dayItemsPopup]);
+  }, [dayEventsPopup]);
 
   return (
     <section aria-label="月間カレンダー">
@@ -76,34 +74,18 @@ function MonthCalendar({
                     secondEvent.start_at ?? "",
                   ),
                 );
-              const dateTasks = tasks
-                .filter(
-                  (task) =>
-                    !task.completed &&
-                    task.due_at?.slice(0, 10) === getDateKey(date),
-                )
-                .sort((firstTask, secondTask) =>
-                  firstTask.due_at.localeCompare(secondTask.due_at),
-                );
               const maxItemsWithoutSummary = hasSixWeeks
                 ? MAX_ITEMS_WITHOUT_SUMMARY_IN_SIX_WEEK_MONTH
                 : MAX_ITEMS_WITHOUT_SUMMARY_IN_FIVE_WEEK_MONTH;
               const visibleItemsWithSummary = hasSixWeeks
                 ? VISIBLE_ITEMS_WITH_SUMMARY_IN_SIX_WEEK_MONTH
                 : VISIBLE_ITEMS_WITH_SUMMARY_IN_FIVE_WEEK_MONTH;
-              const totalItemCount = dateEvents.length + dateTasks.length;
-              const visibleItemCount =
-                totalItemCount > maxItemsWithoutSummary
+              const visibleEventCount =
+                dateEvents.length > maxItemsWithoutSummary
                   ? visibleItemsWithSummary
-                  : totalItemCount;
-              const visibleEvents = dateEvents.slice(0, visibleItemCount);
-              const visibleTaskCount = Math.max(
-                visibleItemCount - visibleEvents.length,
-                0,
-              );
-              const visibleTasks = dateTasks.slice(0, visibleTaskCount);
-              const hiddenItemCount =
-                totalItemCount - visibleEvents.length - visibleTasks.length;
+                  : dateEvents.length;
+              const visibleEvents = dateEvents.slice(0, visibleEventCount);
+              const hiddenEventCount = dateEvents.length - visibleEvents.length;
               const isOutsideMonth =
                 date.getMonth() !== selectedDate.getMonth();
 
@@ -172,52 +154,21 @@ function MonthCalendar({
                       );
                     })}
 
-                    {visibleTasks.map((task) => (
-                      <div
-                        className="month-task"
-                        title={`タスク: ${task.title}`}
-                        key={`task-${task.id}`}
-                        role="button"
-                        tabIndex={0}
-                        onClick={(clickEvent) => {
-                          clickEvent.stopPropagation();
-                          onTaskClick(task);
-                        }}
-                        onKeyDown={(keyEvent) => {
-                          if (
-                            keyEvent.key === "Enter" ||
-                            keyEvent.key === " "
-                          ) {
-                            keyEvent.preventDefault();
-                            keyEvent.stopPropagation();
-                            onTaskClick(task);
-                          }
-                        }}
-                      >
-                        <span className="task-dot" aria-hidden="true" />
-                        <span className="month-item-time">
-                          {formatTime(task.due_at)}
-                        </span>
-                        <span>{task.title}</span>
-                      </div>
-                    ))}
-
-                    {hiddenItemCount > 0 && (
+                    {hiddenEventCount > 0 && (
                       <button
                         type="button"
                         className="month-more-events"
-                        title={`他${hiddenItemCount}件の予定とタスクを表示`}
+                        title={`他${hiddenEventCount}件の予定を表示`}
                         onClick={(clickEvent) => {
                           clickEvent.stopPropagation();
-                          setDayItemsPopup({
+                          setDayEventsPopup({
                             date,
                             events: dateEvents,
-                            tasks: dateTasks,
                           });
                         }}
                         onKeyDown={(keyEvent) => keyEvent.stopPropagation()}
                       >
-                        他{hiddenItemCount}件
+                        他{hiddenEventCount}件
                       </button>
                     )}
                   </div>
@@ -228,13 +179,13 @@ function MonthCalendar({
         </div>
       </div>
 
-      {dayItemsPopup && (
+      {dayEventsPopup && (
         <div
           className="month-events-popover-backdrop"
-          onClick={() => setDayItemsPopup(null)}
+          onClick={() => setDayEventsPopup(null)}
         >
           <section
-            aria-labelledby={`month-events-title-${getDateKey(dayItemsPopup.date)}`}
+            aria-labelledby={`month-events-title-${getDateKey(dayEventsPopup.date)}`}
             aria-modal="true"
             className="month-events-popover"
             role="dialog"
@@ -243,30 +194,30 @@ function MonthCalendar({
             <header className="month-events-popover-header">
               <span aria-hidden="true" />
               <div>
-                <span>{WEEKDAY_NAMES[dayItemsPopup.date.getDay()]}</span>
+                <span>{WEEKDAY_NAMES[dayEventsPopup.date.getDay()]}</span>
                 <time
-                  dateTime={getDateKey(dayItemsPopup.date)}
-                  id={`month-events-title-${getDateKey(dayItemsPopup.date)}`}
+                  dateTime={getDateKey(dayEventsPopup.date)}
+                  id={`month-events-title-${getDateKey(dayEventsPopup.date)}`}
                 >
-                  {dayItemsPopup.date.getDate()}
+                  {dayEventsPopup.date.getDate()}
                 </time>
               </div>
               <button
                 autoFocus
-                aria-label="予定とタスクの一覧を閉じる"
+                aria-label="予定の一覧を閉じる"
                 className="modal-close-button"
                 type="button"
-                onClick={() => setDayItemsPopup(null)}
+                onClick={() => setDayEventsPopup(null)}
               >
                 ×
               </button>
             </header>
 
             <div className="month-events-popover-list">
-              {dayItemsPopup.events.map((event) => {
+              {dayEventsPopup.events.map((event) => {
                 const eventStart = parseDateTime(event.start_at);
                 const showStartTime =
-                  eventStart && isSameDay(eventStart, dayItemsPopup.date);
+                  eventStart && isSameDay(eventStart, dayEventsPopup.date);
 
                 return (
                   <button
@@ -275,7 +226,7 @@ function MonthCalendar({
                     key={`popup-event-${event.id}`}
                     title={event.title}
                     onClick={() => {
-                      setDayItemsPopup(null);
+                      setDayEventsPopup(null);
                       onEventClick(event);
                     }}
                   >
@@ -289,24 +240,6 @@ function MonthCalendar({
                 );
               })}
 
-              {dayItemsPopup.tasks.map((task) => (
-                <button
-                  type="button"
-                  className="month-events-popover-task"
-                  key={`popup-task-${task.id}`}
-                  title={`タスク: ${task.title}`}
-                  onClick={() => {
-                    setDayItemsPopup(null);
-                    onTaskClick(task);
-                  }}
-                >
-                  <span className="task-dot" aria-hidden="true" />
-                  <span className="month-item-time">
-                    {formatTime(task.due_at)}
-                  </span>
-                  <span>{task.title}</span>
-                </button>
-              ))}
             </div>
           </section>
         </div>

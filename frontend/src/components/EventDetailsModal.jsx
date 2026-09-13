@@ -321,7 +321,7 @@ function EventDetailsModal({
           />
         ) : mode === "edit" ? (
           <form
-            className="add-item-form event-edit-form"
+            className="event-form event-edit-form"
             onSubmit={handleUpdate}
           >
             <div className="modal-form-field">

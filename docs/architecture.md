@@ -9,7 +9,7 @@ Browser / React
   |
   +-- Firebase Authentication -- Google login
   |
-  +-- Cloud Firestore --------- events, tasks, preparations, travelPlans
+  +-- Cloud Firestore --------- events, preparations, travelPlans
   |
   +-- Google Maps JavaScript API / Places
   |
@@ -35,7 +35,7 @@ Browser / React
 - `src/components/`: カレンダー、モーダル、経路、準備案内などのUI
 - `src/dateUtils.js`: ローカル日時文字列とカレンダー表示用の日時計算
 
-予定、タスク、準備項目はログイン後にまとめて読み込みます。移動予定は一覧として読み込まず、予定詳細を開いたときに対象予定の1件を読み込みます。そのため、現在のカレンダーは移動予定を時間ブロックとして表示しません。
+予定と準備項目はログイン後にまとめて読み込みます。移動予定は一覧として読み込まず、予定詳細を開いたときに対象予定の1件を読み込みます。そのため、現在のカレンダーは予定だけを表示し、移動予定を時間ブロックとして表示しません。
 
 ## バックエンド
 

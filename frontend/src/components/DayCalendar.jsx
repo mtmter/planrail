@@ -1,7 +1,6 @@
 import {
   WEEKDAY_NAMES,
   eventOccursOnDate,
-  formatTime,
   getDateKey,
   getEventPositionForDay,
   isSameDay,
@@ -21,10 +20,8 @@ function formatMinutes(minutes) {
 
 function DayCalendar({
   events,
-  tasks,
   selectedDate,
   onEventClick,
-  onTaskClick,
   onTimeClick,
 }) {
   const today = new Date();
@@ -34,16 +31,6 @@ function DayCalendar({
     .sort((firstEvent, secondEvent) =>
       (firstEvent.start_at ?? "").localeCompare(secondEvent.start_at ?? ""),
     );
-  const dateTasks = tasks
-    .filter(
-      (task) =>
-        !task.completed &&
-        task.due_at?.slice(0, 10) === getDateKey(selectedDate),
-    )
-    .sort((firstTask, secondTask) =>
-      firstTask.due_at.localeCompare(secondTask.due_at),
-    );
-
   return (
     <section aria-label="日間カレンダー">
       <div className="calendar-horizontal-scroll">
@@ -68,33 +55,6 @@ function DayCalendar({
               >
                 {selectedDate.getDate()}
               </time>
-            </div>
-          </div>
-
-          <div className="week-due-row day-due-row">
-            <div aria-hidden="true" />
-            <div className="week-due-cell">
-              {dateTasks.map((task) => (
-                <div
-                  className="week-task"
-                  title={task.title}
-                  key={task.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onTaskClick(task)}
-                  onKeyDown={(keyEvent) => {
-                    if (
-                      keyEvent.key === "Enter" ||
-                      keyEvent.key === " "
-                    ) {
-                      keyEvent.preventDefault();
-                      onTaskClick(task);
-                    }
-                  }}
-                >
-                  {formatTime(task.due_at)} {task.title}
-                </div>
-              ))}
             </div>
           </div>
 
