@@ -29,7 +29,7 @@ def get_cors_origins():
     return cors_origins or DEFAULT_CORS_ORIGINS
 
 
-app = FastAPI(title="Ryuute")
+app = FastAPI(title="PlanRail")
 
 app.add_middleware(
     CORSMiddleware,

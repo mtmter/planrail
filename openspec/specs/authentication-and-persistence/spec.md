@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Ryuuteの利用者認証、ユーザー別データ保存、およびFirestoreへのアクセス境界を定義する。
+PlanRailの利用者認証、ユーザー別データ保存、およびFirestoreへのアクセス境界を定義する。
 
 ## Requirements
 

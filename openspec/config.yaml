@@ -1,6 +1,6 @@
 schema: spec-driven
 context: |
-  Ryuute is a Japanese web scheduling application.
+  PlanRail is a Japanese web scheduling application.
   Frontend: React, Vite, JavaScript, Firebase Authentication, Cloud Firestore.
   Backend: Python, FastAPI, Mock and Ekispert route providers.
   The frontend performs schedule CRUD directly against user-scoped Firestore paths.

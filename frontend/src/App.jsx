@@ -561,9 +561,9 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
       <header className="app-header">
         <div className="app-brand">
           <span className="app-logo" aria-hidden="true">
-            竜
+            P
           </span>
-          <h1>Ryuute</h1>
+          <h1>PlanRail</h1>
         </div>
 
         <div className="header-calendar-controls">
@@ -894,9 +894,9 @@ function App() {
       <main className="auth-screen">
         <section className="auth-card" aria-labelledby="login-title">
           <span className="app-logo" aria-hidden="true">
-            竜
+            P
           </span>
-          <h1 id="login-title">Ryuute</h1>
+          <h1 id="login-title">PlanRail</h1>
           <p>予定とタスクをまとめて管理するスケジュール帳</p>
           {authErrorMessage && (
             <p className="auth-error-message" role="alert">
