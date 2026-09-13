@@ -1416,40 +1416,19 @@
   font-size: 0.86rem;
 }
 
-.travel-plan-summary {
-  display: grid;
-  gap: 3px;
-  color: #26344b;
-}
-
-.travel-plan-summary strong {
-  font-size: 1.2rem;
-}
-
-.travel-plan-summary span,
-.travel-plan-route span {
+.travel-plan-metrics {
+  max-width: 100%;
+  margin: 0;
   color: #747f91;
   font-size: 0.8rem;
-}
-
-.travel-plan-summary .travel-plan-metrics {
-  max-width: 100%;
   line-height: 1.6;
 }
 
-.travel-plan-route {
+.route-details {
   display: grid;
-  gap: 5px;
-  color: #2d384b;
-}
-
-.travel-plan-route > div {
-  display: grid;
-  gap: 5px;
-}
-
-.travel-plan-route span {
-  padding-left: 4px;
+  gap: 22px;
+  width: 100%;
+  min-width: 0;
 }
 
 .route-search-form {

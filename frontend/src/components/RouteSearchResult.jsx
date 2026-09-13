@@ -3,20 +3,8 @@ import {
   formatFare,
   formatUnknownCount,
   formatUnknownMinutes,
-  getTransitModeLabel,
 } from "../routeFormatters";
-
-function getTransportLabel(type) {
-  if (type === "WALK") {
-    return "徒歩";
-  }
-
-  if (type === "TRANSIT") {
-    return "公共交通";
-  }
-
-  return type;
-}
+import RouteDetails from "./RouteDetails";
 
 function RouteSearchResult({
   activeCandidateId,
@@ -77,79 +65,7 @@ function RouteSearchResult({
         </ul>
       )}
 
-      <div className="route-result-heading">
-        <h3>経路検索結果</h3>
-        <div className="route-result-times" aria-label="経路全体の所要時間">
-          <div>
-            <strong>{formatTime(route.departure_at)}</strong>
-            <span>出発</span>
-          </div>
-          <p>{route.duration_minutes}分</p>
-          <div>
-            <strong>{formatTime(route.arrival_at)}</strong>
-            <span>到着</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="route-timeline">
-        <div className="route-place route-origin">
-          <span aria-hidden="true" />
-          <strong>{route.origin}</strong>
-        </div>
-
-        {route.segments.map((segment, index) => (
-          <div
-            className="route-segment-group"
-            key={`${segment.departure_at}-${index}`}
-          >
-            <div className="route-segment">
-              <span className="route-segment-line" aria-hidden="true" />
-              <div className="route-segment-details">
-                <strong>
-                  {segment.type === "TRANSIT" && segment.line_name
-                    ? segment.line_name
-                    : getTransportLabel(segment.type)}
-                </strong>
-                <span>
-                  {getTransportLabel(segment.type)}・{segment.duration_minutes}分
-                </span>
-                <span>
-                  {segment.from} → {segment.to}
-                </span>
-                <span>
-                  {formatTime(segment.departure_at)} →{" "}
-                  {formatTime(segment.arrival_at)}
-                </span>
-                {segment.mode && (
-                  <span>{getTransitModeLabel(segment.mode)}</span>
-                )}
-                {segment.train_type && <span>列車種別：{segment.train_type}</span>}
-                {segment.headsign && <span>行先：{segment.headsign}</span>}
-                {(segment.from_platform || segment.to_platform) && (
-                  <span>
-                    ホーム：{segment.from_platform || "不明"} →{" "}
-                    {segment.to_platform || "不明"}
-                  </span>
-                )}
-                {segment.headway_based !== null &&
-                  segment.headway_based !== undefined && (
-                  <span>
-                    {segment.headway_based ? "運行間隔方式" : "時刻表ベース"}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="route-place">
-              <span aria-hidden="true" />
-              <strong>{segment.to}</strong>
-            </div>
-          </div>
-        ))}
-
-        <p className="route-destination-label">目的地：{route.destination}</p>
-      </div>
+      <RouteDetails heading="経路検索結果" route={route} />
 
       {errorMessage && (
         <p className="modal-error-message" role="alert">
