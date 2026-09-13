@@ -1,4 +1,8 @@
 import { formatTime } from "../dateUtils";
+import {
+  formatFare,
+  getTransitModeLabel,
+} from "../routeFormatters";
 
 function getTransportLabel(segment) {
   if (segment.type === "WALK") {
@@ -6,7 +10,7 @@ function getTransportLabel(segment) {
   }
 
   if (segment.type === "TRANSIT") {
-    return segment.line_name || "公共交通";
+    return segment.line_name || getTransitModeLabel(segment.mode) || "公共交通";
   }
 
   return segment.type;
@@ -46,8 +50,20 @@ function TravelPlanDetails({
     );
   }
 
-  const lastSegment =
-    travelPlan.segments[travelPlan.segments.length - 1];
+  const segments = Array.isArray(travelPlan.segments) ? travelPlan.segments : [];
+  const lastSegment = segments[segments.length - 1];
+  const routeMetrics = [
+    travelPlan.transfer_count !== null && travelPlan.transfer_count !== undefined
+      ? `乗換 ${travelPlan.transfer_count}回`
+      : null,
+    travelPlan.walk_minutes !== null && travelPlan.walk_minutes !== undefined
+      ? `徒歩 ${travelPlan.walk_minutes}分`
+      : null,
+    travelPlan.wait_minutes !== null && travelPlan.wait_minutes !== undefined
+      ? `待ち時間 ${travelPlan.wait_minutes}分`
+      : null,
+    travelPlan.fare ? `運賃 ${formatFare(travelPlan.fare)}` : null,
+  ].filter(Boolean);
 
   return (
     <section className="travel-plan-section">
@@ -58,17 +74,42 @@ function TravelPlanDetails({
           {formatTime(travelPlan.arrival_at)}
         </strong>
         <span>所要時間 {travelPlan.duration_minutes}分</span>
+        {routeMetrics.length > 0 && (
+          <span className="travel-plan-metrics">{routeMetrics.join("・")}</span>
+        )}
       </div>
 
       <div className="travel-plan-route">
         <strong>{travelPlan.origin}</strong>
-        {travelPlan.segments.map((segment, index) => (
+        {segments.map((segment, index) => (
           <div key={`${segment.departure_at}-${index}`}>
             <span>↓ {getTransportLabel(segment)}</span>
             <strong>{segment.to}</strong>
+            {(segment.train_type || segment.headsign) && (
+              <span>
+                {[segment.train_type, segment.headsign]
+                  .filter(Boolean)
+                  .join("・")}
+              </span>
+            )}
+            {(segment.from_platform || segment.to_platform) && (
+              <span>
+                ホーム：{segment.from_platform || "不明"} →{" "}
+                {segment.to_platform || "不明"}
+              </span>
+            )}
+            {segment.mode && (
+              <span>{getTransitModeLabel(segment.mode)}</span>
+            )}
+            {segment.headway_based !== null &&
+              segment.headway_based !== undefined && (
+              <span>
+                {segment.headway_based ? "運行間隔方式" : "時刻表ベース"}
+              </span>
+            )}
           </div>
         ))}
-        {travelPlan.segments.length === 0 && (
+        {segments.length === 0 && (
           <div>
             <span>↓ {travelPlan.transport_mode}</span>
             <strong>{travelPlan.destination}</strong>

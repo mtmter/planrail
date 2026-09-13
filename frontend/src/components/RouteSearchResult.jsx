@@ -1,4 +1,10 @@
 import { formatTime } from "../dateUtils";
+import {
+  formatFare,
+  formatUnknownCount,
+  formatUnknownMinutes,
+  getTransitModeLabel,
+} from "../routeFormatters";
 
 function getTransportLabel(type) {
   if (type === "WALK") {
@@ -13,14 +19,64 @@ function getTransportLabel(type) {
 }
 
 function RouteSearchResult({
+  activeCandidateId,
+  candidates,
   errorMessage,
   isRegistering,
   onRegister,
   onRetry,
+  onSelectCandidate,
+  recommendedCandidateId,
   route,
+  warnings = [],
 }) {
   return (
     <div className="route-result">
+      <section className="route-candidates" aria-label="経路候補">
+        <h3>経路候補を比較</h3>
+        <div className="route-candidate-list">
+          {candidates.map((candidate, index) => {
+            const isRecommended =
+              candidate.candidate_id === recommendedCandidateId;
+            const isActive = candidate.candidate_id === activeCandidateId;
+
+            return (
+              <button
+                aria-pressed={isActive}
+                className={`route-candidate-card${isActive ? " is-active" : ""}`}
+                disabled={isRegistering}
+                key={candidate.candidate_id}
+                type="button"
+                onClick={() => onSelectCandidate(candidate.candidate_id)}
+              >
+                <span className="route-candidate-heading">
+                  <strong>候補 {index + 1}</strong>
+                  {isRecommended && (
+                    <span className="route-recommended-badge">おすすめ</span>
+                  )}
+                </span>
+                <span className="route-candidate-times">
+                  {formatTime(candidate.departure_at)}発 →{" "}
+                  {formatTime(candidate.arrival_at)}着
+                </span>
+                <span>{candidate.duration_minutes}分</span>
+                <span>乗換 {formatUnknownCount(candidate.transfer_count)}</span>
+                <span>徒歩 {formatUnknownMinutes(candidate.walk_minutes)}</span>
+                <span>運賃 {formatFare(candidate.fare)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {warnings.length > 0 && (
+        <ul className="route-search-warnings" aria-label="経路検索に関する注意" role="status">
+          {warnings.map((warning, index) => (
+            <li key={`${warning}-${index}`}>{warning}</li>
+          ))}
+        </ul>
+      )}
+
       <div className="route-result-heading">
         <h3>経路検索結果</h3>
         <div className="route-result-times" aria-label="経路全体の所要時間">
@@ -65,6 +121,23 @@ function RouteSearchResult({
                   {formatTime(segment.departure_at)} →{" "}
                   {formatTime(segment.arrival_at)}
                 </span>
+                {segment.mode && (
+                  <span>{getTransitModeLabel(segment.mode)}</span>
+                )}
+                {segment.train_type && <span>列車種別：{segment.train_type}</span>}
+                {segment.headsign && <span>行先：{segment.headsign}</span>}
+                {(segment.from_platform || segment.to_platform) && (
+                  <span>
+                    ホーム：{segment.from_platform || "不明"} →{" "}
+                    {segment.to_platform || "不明"}
+                  </span>
+                )}
+                {segment.headway_based !== null &&
+                  segment.headway_based !== undefined && (
+                  <span>
+                    {segment.headway_based ? "運行間隔方式" : "時刻表ベース"}
+                  </span>
+                )}
               </div>
             </div>
 

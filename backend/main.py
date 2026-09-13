@@ -60,6 +60,12 @@ class DirectRouteSearchRequest(RouteSearchRequest):
     event: RouteSearchEvent
 
 
+class RouteFare(BaseModel):
+    currency: str | None = None
+    ticket: int | float | None = None
+    ic: int | float | None = None
+
+
 class RouteSegment(BaseModel):
     type: str
     from_: str = Field(alias="from")
@@ -68,16 +74,34 @@ class RouteSegment(BaseModel):
     arrival_at: str
     duration_minutes: int = Field(ge=0)
     line_name: str | None = None
+    mode: str | None = None
+    train_type: str | None = None
+    headsign: str | None = None
+    from_platform: str | None = None
+    to_platform: str | None = None
+    color: str | None = None
+    headway_based: bool | None = None
 
 
-class RouteSearchResponse(BaseModel):
+class RouteCandidate(BaseModel):
+    candidate_id: str
     origin: str
     destination: str
     departure_at: str
     arrival_at: str
     duration_minutes: int = Field(ge=0)
     transport_mode: str
+    transfer_count: int | None = Field(default=None, ge=0)
+    walk_minutes: int | None = Field(default=None, ge=0)
+    wait_minutes: int | None = Field(default=None, ge=0)
+    fare: RouteFare | None = None
     segments: list[RouteSegment]
+
+
+class RouteSearchResponse(BaseModel):
+    candidates: list[RouteCandidate] = Field(min_length=1, max_length=3)
+    recommended_candidate_id: str
+    warnings: list[str]
 
 
 def clean_optional_text(value):

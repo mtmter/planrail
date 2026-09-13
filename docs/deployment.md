@@ -37,11 +37,11 @@ CORS_ORIGINS
 
 当時の公開経路検索はMock fixtureと同じ構造・所要時間の結果を返していました。`ROUTE_PROVIDER` の実値はリポジトリやVercel CLIから取得できないため、デプロイ時にはVercelのバックエンドProjectで値を確認し、`transit` に設定してください。`ROUTE_PROVIDER` が明示されている場合はアプリの既定値より優先されるため、古い `mock` 設定が残っているとTransitへ切り替わりません。Transit APIにAPIキーは不要です。
 
-公開環境では次を確認済みです。
+公開環境では次を確認済みです（Transit候補を複数返す今回の変更をデプロイする前の契約です）。
 
 - フロントエンドURLがHTTP 200とHTMLを返す
 - `GET /api/health` がHTTP 200と `{"status":"ok"}` を返す
-- `POST /api/route-search` がHTTP 200と共通Route JSONを返す
+- `POST /api/route-search` がHTTP 200と従来の単一Route JSONを返す
 - バックエンドが `https://ryuute-v2-frontend.vercel.app` をCORSで許可する
 
 ## リポジトリで管理している設定
@@ -86,6 +86,8 @@ VITE_BACKEND_API_BASE_URL=https://<backend-domain>/api
 ```
 
 `VITE_BACKEND_API_BASE_URL` の末尾は `/api` とし、その後ろに `/` を付けません。Viteの環境変数はビルド時に取り込まれるため、値を変更した場合はフロントエンドを再デプロイします。
+
+経路検索APIは今回の変更で単一Route JSONから候補レスポンス（最大3件）へ変わるため、バックエンドとフロントエンドを同じリリースで更新してください。片方だけが新旧で混在すると検索結果を処理できません。リポジトリには両プロジェクトを一括デプロイするCI/CDがないため、同じ変更コミットから両方をデプロイし、経路検索・候補選択・移動予定登録を確認します。
 
 ## 外部サービス側の確認
 

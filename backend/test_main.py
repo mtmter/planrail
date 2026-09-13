@@ -107,12 +107,21 @@ class RouteSearchApiTest(unittest.TestCase):
             {"ROUTE_PROVIDER": "mock"},
             clear=True,
         ):
-            route = main.search_direct_route(create_route_request())
+            result = main.search_direct_route(create_route_request())
 
-        self.assertEqual(route["origin"], "九州大学 伊都キャンパス")
-        self.assertEqual(route["destination"], "Garraway F")
-        self.assertEqual(route["arrival_at"], "2026-08-25T09:57")
-        self.assertEqual(route["transport_mode"], "TRANSIT")
+        response = main.RouteSearchResponse.model_validate(result)
+        self.assertEqual(len(response.candidates), 3)
+        self.assertEqual(response.recommended_candidate_id, "candidate-1")
+        self.assertEqual(response.candidates[0].origin, "九州大学 伊都キャンパス")
+        self.assertEqual(response.candidates[0].destination, "Garraway F")
+        self.assertEqual(response.candidates[0].arrival_at, "2026-08-25T09:57")
+        self.assertEqual(response.candidates[0].transport_mode, "TRANSIT")
+        response_data = response.model_dump(by_alias=True)
+        self.assertEqual(
+            set(response_data),
+            {"candidates", "recommended_candidate_id", "warnings"},
+        )
+        self.assertEqual(response_data["candidates"][1]["segments"][1]["from"], "九大工学部")
 
     def test_route_search_validates_request(self):
         request_without_origin = {

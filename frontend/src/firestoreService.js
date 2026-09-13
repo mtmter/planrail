@@ -12,6 +12,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { serializeTravelPlan } from "./travelPlanSerializer";
 
 function userCollection(uid, collectionName) {
   return collection(db, "users", uid, collectionName);
@@ -124,10 +125,7 @@ export async function getTravelPlan(uid, eventId) {
 }
 
 export async function saveTravelPlan(uid, eventId, route) {
-  const documentData = {
-    ...route,
-    event_id: String(eventId),
-  };
+  const documentData = serializeTravelPlan(eventId, route);
   await setDoc(
     userDocument(uid, "travelPlans", eventId),
     documentData,

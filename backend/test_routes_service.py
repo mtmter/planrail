@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import unittest
@@ -62,38 +63,51 @@ class TransitRouteConverterTest(unittest.TestCase):
             destination_display_name="Garraway F",
         )
 
-        self.assertEqual(result["origin"], "九州大学 伊都キャンパス")
-        self.assertEqual(result["destination"], "Garraway F")
-        self.assertEqual(result["departure_at"], "2026-08-25T08:54")
-        self.assertEqual(result["arrival_at"], "2026-08-25T09:57")
-        self.assertEqual(result["duration_minutes"], 63)
-        self.assertEqual(result["transport_mode"], "TRANSIT")
+        self.assertEqual(len(result["candidates"]), 3)
+        self.assertEqual(result["recommended_candidate_id"], "candidate-1")
+        self.assertEqual(result["warnings"], [])
+        route = result["candidates"][0]
+        self.assertEqual(route["origin"], "九州大学 伊都キャンパス")
+        self.assertEqual(route["destination"], "Garraway F")
+        self.assertEqual(route["departure_at"], "2026-08-25T08:54")
+        self.assertEqual(route["arrival_at"], "2026-08-25T09:57")
+        self.assertEqual(route["duration_minutes"], 63)
+        self.assertEqual(route["transport_mode"], "TRANSIT")
+        self.assertEqual(route["transfer_count"], 1)
+        self.assertEqual(route["walk_minutes"], 10)
+        self.assertEqual(route["wait_minutes"], 8)
+        self.assertIsNone(route["fare"])
         self.assertEqual(
-            [segment["type"] for segment in result["segments"]],
+            [segment["type"] for segment in route["segments"]],
             ["WALK", "TRANSIT", "TRANSIT", "WALK"],
         )
         self.assertEqual(
-            result["segments"][1]["line_name"],
+            route["segments"][1]["line_name"],
             "昭和バス・九州大学線 2M（九大学研都市駅行）",
         )
         self.assertEqual(
-            result["segments"][2]["line_name"],
+            route["segments"][2]["line_name"],
             "JR筑肥線・福岡市地下鉄空港線（福岡空港行）",
         )
         self.assertEqual(
-            set(result),
+            set(route),
             {
+                "candidate_id",
                 "origin",
                 "destination",
                 "departure_at",
                 "arrival_at",
                 "duration_minutes",
                 "transport_mode",
+                "transfer_count",
+                "walk_minutes",
+                "wait_minutes",
+                "fare",
                 "segments",
             },
         )
         self.assertEqual(
-            set(result["segments"][0]),
+            set(route["segments"][0]),
             {
                 "type",
                 "from",
@@ -102,7 +116,28 @@ class TransitRouteConverterTest(unittest.TestCase):
                 "arrival_at",
                 "duration_minutes",
                 "line_name",
+                "mode",
+                "train_type",
+                "headsign",
+                "from_platform",
+                "to_platform",
+                "color",
+                "headway_based",
             },
+        )
+        self.assertEqual(
+            [candidate["candidate_id"] for candidate in result["candidates"]],
+            ["candidate-1", "candidate-2", "candidate-3"],
+        )
+        self.assertEqual(result["candidates"][1]["fare"]["ic"], 440)
+        self.assertEqual(result["candidates"][1]["fare"]["ticket"], 450)
+        self.assertEqual(
+            result["candidates"][1]["segments"][1]["train_type"],
+            "快速",
+        )
+        self.assertEqual(
+            result["candidates"][1]["segments"][1]["from_platform"],
+            "1番のりば",
         )
 
     def test_mock_shifts_service_seconds_to_requested_arrival(self):
@@ -115,11 +150,12 @@ class TransitRouteConverterTest(unittest.TestCase):
             destination_display_name="Garraway F",
         )
 
-        self.assertEqual(result["departure_at"], "2026-08-26T08:22")
-        self.assertEqual(result["arrival_at"], "2026-08-26T09:25")
-        self.assertEqual(result["duration_minutes"], 63)
-        self.assertEqual(result["segments"][0]["departure_at"], "2026-08-26T08:22")
-        self.assertEqual(result["segments"][2]["departure_at"], "2026-08-26T08:52")
+        route = result["candidates"][0]
+        self.assertEqual(route["departure_at"], "2026-08-26T08:22")
+        self.assertEqual(route["arrival_at"], "2026-08-26T09:25")
+        self.assertEqual(route["duration_minutes"], 63)
+        self.assertEqual(route["segments"][0]["departure_at"], "2026-08-26T08:22")
+        self.assertEqual(route["segments"][2]["departure_at"], "2026-08-26T08:52")
 
     def test_converter_handles_service_seconds_across_midnight_and_rounds_up(self):
         response_data = {
@@ -146,27 +182,32 @@ class TransitRouteConverterTest(unittest.TestCase):
             ],
         }
 
-        result = routes_service.convert_transit_route(
+        result = routes_service.convert_transit_routes(
             response_data,
             "出発地",
             "目的地",
         )
 
-        self.assertEqual(result["departure_at"], "2026-08-25T23:59")
-        self.assertEqual(result["arrival_at"], "2026-08-26T00:00")
-        self.assertEqual(result["duration_minutes"], 2)
-        self.assertEqual(result["segments"][0]["duration_minutes"], 2)
+        route = result["candidates"][0]
+        self.assertEqual(route["departure_at"], "2026-08-25T23:59")
+        self.assertEqual(route["arrival_at"], "2026-08-26T00:00")
+        self.assertEqual(route["duration_minutes"], 2)
+        self.assertEqual(route["segments"][0]["duration_minutes"], 2)
 
     def test_converter_reports_no_options_and_walking_only(self):
         with self.assertRaises(routes_service.RouteNotFoundError):
-            routes_service.convert_transit_route(
+            routes_service.convert_transit_routes(
                 {"options": []},
                 "出発地",
                 "目的地",
             )
 
-        walking_response = load_fixture()
-        walking_response["options"][0]["journey"]["legs"] = [
+    def test_converter_preserves_order_and_filters_only_walking_options(self):
+        response_data = load_fixture()
+        walking_option = copy.deepcopy(response_data["options"][0])
+        walking_option["id"] = "walking-only"
+        walking_option["recommended"] = True
+        walking_option["journey"]["legs"] = [
             {
                 "kind": "walk",
                 "from": {"id": "a", "name": "出発地"},
@@ -175,8 +216,171 @@ class TransitRouteConverterTest(unittest.TestCase):
                 "arrivalSecs": 35820,
             }
         ]
+        response_data["options"] = [
+            walking_option,
+            response_data["options"][1],
+            response_data["options"][0],
+        ]
+        response_data["options"][1]["recommended"] = False
+        response_data["options"][2]["recommended"] = False
+        response_data["decision"]["recommendedOptionId"] = "walking-only"
+
+        result = routes_service.convert_transit_routes(
+            response_data,
+            "出発地",
+            "目的地",
+        )
+
+        self.assertEqual(
+            [candidate["candidate_id"] for candidate in result["candidates"]],
+            ["candidate-1", "candidate-2"],
+        )
+        self.assertEqual(result["recommended_candidate_id"], "candidate-1")
+        self.assertEqual(
+            result["candidates"][0]["departure_at"],
+            "2026-08-25T09:04",
+        )
+        self.assertEqual(
+            result["candidates"][1]["departure_at"],
+            "2026-08-25T08:54",
+        )
+
+    def test_converter_prefers_transit_recommendation_then_option_flag_then_first(self):
+        response_data = load_fixture()
+        response_data["decision"]["recommendedOptionId"] = "demo-option-3"
+        result = routes_service.convert_transit_routes(
+            response_data,
+            "出発地",
+            "目的地",
+        )
+        self.assertEqual(result["recommended_candidate_id"], "candidate-3")
+
+        response_data["decision"].pop("recommendedOptionId")
+        response_data["options"][0]["recommended"] = False
+        response_data["options"][1]["recommended"] = True
+        result = routes_service.convert_transit_routes(
+            response_data,
+            "出発地",
+            "目的地",
+        )
+        self.assertEqual(result["recommended_candidate_id"], "candidate-2")
+
+        response_data["options"][1]["recommended"] = False
+        result = routes_service.convert_transit_routes(
+            response_data,
+            "出発地",
+            "目的地",
+        )
+        self.assertEqual(result["recommended_candidate_id"], "candidate-1")
+
+    def test_converter_maps_warning_coverage_codes_and_ignores_unknown_and_info(self):
+        response_data = load_fixture()
+        response_data["coverage"]["notices"] = [
+            {
+                "severity": "warning",
+                "code": "staleFeedData",
+                "message": "Transit raw message must not leak",
+            },
+            {"severity": "info", "code": "loadedDataScope", "message": "info"},
+            {"severity": "warning", "code": "futureCode", "message": "unknown"},
+            {"severity": "warning", "code": ["malformed"], "message": "invalid"},
+            None,
+        ]
+
+        result = routes_service.convert_transit_routes(
+            response_data,
+            "出発地",
+            "目的地",
+        )
+
+        self.assertEqual(
+            result["warnings"],
+            ["時刻表データが古く、実際の運行と異なる場合があります。"],
+        )
+
+    def test_converter_uses_journey_fare_when_option_metric_is_missing(self):
+        response_data = load_fixture()
+        response_data["options"][0]["journey"]["fare"] = {
+            "currency": "JPY",
+            "ticket": 500,
+            "ic": 490,
+        }
+        result = routes_service.convert_transit_routes(
+            response_data,
+            "出発地",
+            "目的地",
+        )
+        self.assertEqual(
+            result["candidates"][0]["fare"],
+            {"currency": "JPY", "ticket": 500, "ic": 490},
+        )
+
+    def test_converter_keeps_missing_comparison_and_segment_values_nullable(self):
+        response_data = load_fixture()
+        option = response_data["options"][0]
+        option.pop("metrics")
+        option["journey"].pop("transferCount")
+        transit_leg = next(
+            leg
+            for leg in option["journey"]["legs"]
+            if leg["kind"] == "transit"
+        )
+        for field_name in (
+            "mode",
+            "trainType",
+            "headsign",
+            "color",
+            "headwayBased",
+        ):
+            transit_leg.pop(field_name, None)
+        transit_leg["from"].pop("platformCode", None)
+        transit_leg["to"].pop("platformCode", None)
+        result = routes_service.convert_transit_routes(
+            response_data,
+            "出発地",
+            "目的地",
+        )
+        candidate = result["candidates"][0]
+        self.assertIsNone(candidate["transfer_count"])
+        self.assertIsNone(candidate["walk_minutes"])
+        self.assertIsNone(candidate["wait_minutes"])
+        self.assertIsNone(candidate["fare"])
+        self.assertIsNone(candidate["segments"][1]["mode"])
+        self.assertIsNone(candidate["segments"][1]["train_type"])
+        self.assertIsNone(candidate["segments"][1]["headsign"])
+        self.assertIsNone(candidate["segments"][1]["from_platform"])
+        self.assertIsNone(candidate["segments"][1]["to_platform"])
+        self.assertIsNone(candidate["segments"][1]["color"])
+        self.assertIsNone(candidate["segments"][1]["headway_based"])
+
+    def test_converter_does_not_expose_transit_metadata_or_geometry(self):
+        result = routes_service.convert_transit_routes(
+            load_fixture(),
+            "出発地",
+            "目的地",
+        )
+        self.assertEqual(
+            set(result),
+            {"candidates", "recommended_candidate_id", "warnings"},
+        )
+        self.assertNotIn("id", result["candidates"][0])
+        self.assertNotIn("rank", result["candidates"][0])
+        self.assertNotIn("score", result["candidates"][0])
+        self.assertNotIn("map", result)
+
+        walking_response = load_fixture()
+        for option in walking_response["options"]:
+            option["journey"]["legs"] = [
+                {
+                    "kind": "walk",
+                    "from": {"id": "a", "name": "出発地"},
+                    "to": {"id": "b", "name": "目的地"},
+                    "departureSecs": 32040,
+                    "arrivalSecs": 35820,
+                }
+            ]
         with self.assertRaises(routes_service.RouteNotFoundError):
-            routes_service.convert_transit_route(
+            routes_service.convert_transit_routes(
                 walking_response,
                 "出発地",
                 "目的地",
@@ -224,7 +428,7 @@ class TransitRouteConverterTest(unittest.TestCase):
         for response_data in invalid_responses:
             with self.subTest(response_data=response_data):
                 with self.assertRaises(routes_service.RoutesResponseError):
-                    routes_service.convert_transit_route(
+                    routes_service.convert_transit_routes(
                         response_data,
                         "出発地",
                         "目的地",
@@ -309,7 +513,7 @@ class TransitProviderTest(unittest.TestCase):
                 "date": "20260825",
                 "time": "10:12",
                 "type": "arrival",
-                "numItineraries": "1",
+                "numItineraries": "3",
                 "strategy": "balanced",
                 "live": "false",
                 "tracking": "none",

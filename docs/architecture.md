@@ -40,12 +40,14 @@ Browser / React
 ## バックエンド
 
 - `main.py`: FastAPIアプリ、CORS、リクエスト・レスポンスモデル、HTTPエラー変換
-- `routes_service.py`: Provider選択とTransit形式から共通Route形式への変換
+- `routes_service.py`: Provider選択とTransit形式から最大3候補の共通Route形式への変換
 - `route_providers/transit_provider.py`: Transit API問い合わせ、Google Places座標の駅・停留所解決
 - `route_providers/mock_provider.py`: Transit形式fixtureの読み込みと時刻調整
 - `fixtures/transit_guidance_plan_demo.json`: Mock Providerが返すTransit guidance-plan形式データ
 
-Providerから取得したデータはバックエンドでアプリ共通Route JSONへ変換します。フロントエンドとFirestoreはTransit APIの生レスポンスを扱いません。
+Providerから取得したデータはバックエンドで最大3件の候補を含むアプリ共通Route JSONへ変換します。フロントエンドは候補を比較し、推奨候補を初期選択した状態で、利用者が登録対象を1件選びます。フロントエンドとFirestoreはTransit APIの生レスポンスを扱いません。
+
+経路検索レスポンスは `candidates`、`recommended_candidate_id`、`warnings` を持ちます。各候補の候補IDと検索警告は検索中だけの情報です。Firestoreには選択された候補だけを明示的なallowlistで保存し、候補一覧、候補ID、警告、順位情報、geometryを保存しません。旧形式の移動予定では新しい比較情報や拡張leg項目が欠けるため、フロントエンドは欠損値を許容します。
 
 ## データ境界
 

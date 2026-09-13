@@ -18,10 +18,10 @@ Transit Provider ──┬── /api/v1/places/reverse (駅・停留所候補�
                    └── /api/v1/guidance/plan (到着時刻指定の経路検索)
                                       │
                                       v
-                         convert_transit_route()
+                         convert_transit_routes()
                                       │
                                       v
-                            共通Route JSON
+                         RouteCandidate response
 ```
 
 API仕様は[Transit API reference](https://api.transit.ls8h.com/api/docs)と[OpenAPI JSON](https://api.transit.ls8h.com/api/openapi.json)を参照してください。
@@ -38,7 +38,7 @@ toLabel=<destination display name>
 date=YYYYMMDD
 time=HH:MM
 type=arrival
-numItineraries=1
+numItineraries=3
 strategy=balanced
 live=false
 tracking=none
@@ -61,7 +61,7 @@ Transit endpointやPlace IDはリクエスト時だけ利用し、共通Route JS
 - planner endpointを作れない座標なし入力: HTTP 400
 - reverse APIのエラー: `geo:` にフォールバックし、plan検索を継続
 
-成功レスポンスではcoverage notices、運賃、乗換数、徒歩・待ち時間、route color、geometryなどを表示・保存しません。
+成功レスポンスはTransitの候補順を保った最大3件の候補を返し、徒歩legだけの候補は除外します。各候補には比較用の乗換数、徒歩・待ち時間、運賃と拡張leg情報を含めます。推奨候補IDはTransitのdecision情報を優先し、なければ候補の推奨フラグ、さらに該当がなければ最初の有効候補を使います。既知のcoverage noticeは日本語の警告として返します。
 
 ## Mock Provider
 
@@ -71,11 +71,14 @@ fixtureを置き換える場合は `mock_provider.py` の `FIXTURE_DESIRED_ARRIV
 
 ## Converter
 
-`convert_transit_route()` は `options[0].journey` を1経路として使い、Transitの `date` と `timezone` のサービス日0時に `departureSecs`、`arrivalSecs` を加えて日時を作ります。秒値は翌日に進んだり負になったりするため、日付をまたぐ値もそのまま扱います。画面用の日時は日本時間の `YYYY-MM-DDTHH:mm`、durationは秒数から分へ切り上げます。
+`convert_transit_routes()` はTransitの `options` を先頭から最大3件変換し、Transitの `date` と `timezone` のサービス日0時に `departureSecs`、`arrivalSecs` を加えて日時を作ります。秒値は翌日に進んだり負になったりするため、日付をまたぐ値もそのまま扱います。画面用の日時は日本時間の `YYYY-MM-DDTHH:mm`、durationは秒数から分へ切り上げます。レスポンスは `candidates`、`recommended_candidate_id`、`warnings` の形式で、候補IDはそのレスポンス内でのみ有効です。
 
 - `kind=walk` は `WALK`、`line_name=null`
-- `kind=transit` は `TRANSIT`、`line_name=routeName`
+- `kind=transit` は `TRANSIT`、`line_name=routeName`。取得できる場合は列車種別、方面、乗降platform、路線色、headway情報も含めます
 - 公共交通legがないjourneyは採用せず、経路なしとしてHTTP 404
-- 共通Route JSONには既存フィールドのみを含め、Transit固有データは出力しない
+- `transfer_count`、`walk_minutes`、`wait_minutes`、`fare` は欠損値をnullで表し、IC運賃がある場合は通常運賃より優先します
+- Transitの駅ID、生レスポンス、geometry、ranking metadataは共通Route JSONに含めません
 
-Transit由来のJSON項目やTransit endpoint IDはフロントエンドへ渡しません。
+検索レスポンスの候補一覧やwarning、推奨・順位情報は検索中だけの情報です。Firestoreには利用者が選択した候補1件の明示的なallowlist項目だけを保存し、候補ID、他候補、warning、Transit固有のranking metadata、geometryは保存しません。
+
+Transitの生レスポンスやTransit endpoint IDはフロントエンドへ渡しません。

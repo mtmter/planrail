@@ -36,6 +36,14 @@ function RouteSearchModal({
   const [isSearching, setIsSearching] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [routeResult, setRouteResult] = useState(initialRouteResult);
+  const [activeCandidateId, setActiveCandidateId] = useState(
+    initialRouteResult?.recommended_candidate_id ??
+      initialRouteResult?.candidates?.[0]?.candidate_id ??
+      null,
+  );
+  const activeCandidate = routeResult?.candidates?.find(
+    (candidate) => candidate.candidate_id === activeCandidateId,
+  );
 
   async function handleSubmit(submitEvent) {
     submitEvent.preventDefault();
@@ -54,6 +62,7 @@ function RouteSearchModal({
     onBusyChange(true);
     setErrorMessage("");
     setRouteResult(null);
+    setActiveCandidateId(null);
 
     try {
       const originRequest = originPlace
@@ -67,6 +76,11 @@ function RouteSearchModal({
         : { origin_name: trimmedOrigin };
       const result = await onSearch(event.id, originRequest);
       setRouteResult(result);
+      setActiveCandidateId(
+        result.recommended_candidate_id ??
+          result.candidates[0]?.candidate_id ??
+          null,
+      );
       onSearchSuccess?.(result);
     } catch (searchError) {
       setErrorMessage(searchError.message);
@@ -96,17 +110,23 @@ function RouteSearchModal({
     }
   }
 
-  if (routeResult) {
+  if (routeResult && activeCandidate) {
     return (
       <RouteSearchResult
+        activeCandidateId={activeCandidateId}
+        candidates={routeResult.candidates}
         errorMessage={errorMessage}
         isRegistering={isRegistering}
-        route={routeResult}
+        recommendedCandidateId={routeResult.recommended_candidate_id}
+        route={activeCandidate}
+        warnings={routeResult.warnings}
         onRegister={handleRegister}
+        onSelectCandidate={setActiveCandidateId}
         onRetry={() => {
           setOrigin("");
           setOriginPlace(null);
           setRouteResult(null);
+          setActiveCandidateId(null);
           setErrorMessage("");
         }}
       />

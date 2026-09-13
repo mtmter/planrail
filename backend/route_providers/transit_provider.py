@@ -78,7 +78,7 @@ def get_route(
         "date": arrival_datetime.strftime("%Y%m%d"),
         "time": arrival_datetime.strftime("%H:%M"),
         "type": "arrival",
-        "numItineraries": "1",
+        "numItineraries": "3",
         "strategy": "balanced",
         "live": "false",
         "tracking": "none",
