@@ -11,7 +11,7 @@ Googleアカウントでログインすると、ユーザーごとのデータ�
 - タスクの完了・未完了管理
 - Google Placesによる場所候補と、候補を利用できない場合の文字入力
 - Google Mapsへの場所リンク
-- Mockまたは駅すぱあとProviderを使った公共交通経路検索
+- Transit APIまたは開発・テスト用Mock Providerを使った公共交通経路検索
 - 検索結果の移動予定への登録
 - 予定ごとの準備チェックリストと、開始前の準備案内
 
@@ -22,7 +22,7 @@ Googleアカウントでログインすると、ユーザーごとのデータ�
 | 領域 | 技術・役割 |
 | --- | --- |
 | `frontend/` | React、Vite、Firebase Authentication、Cloud Firestore、Google Places |
-| `backend/` | FastAPI、経路検索、Mock・駅すぱあとProvider |
+| `backend/` | FastAPI、経路検索、Transit・Mock Provider |
 | `openspec/` | 実装済みのプロダクト仕様と、今後の変更管理 |
 | `docs/` | アーキテクチャ、外部Provider、デプロイなどの技術資料 |
 
@@ -48,7 +48,7 @@ Googleアカウントでログインすると、ユーザーごとのデータ�
 - Python 3
 - GoogleログインとCloud Firestoreを利用できるFirebaseプロジェクト
 - 場所候補を利用する場合は、Maps JavaScript APIとPlaces APIを利用できるブラウザ用APIキー
-- `ROUTE_PROVIDER=ekispert` を利用する場合は駅すぱあとAPIキー
+- Transit APIは公開APIのため、経路検索用APIキーは不要
 
 Node.jsとPythonの対応バージョンは現在リポジトリで固定されていません。依存関係は `frontend/package-lock.json` と `backend/requirements.txt` で管理されています。
 
@@ -85,15 +85,14 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-既定の設定はMock Providerです。
+既定のProviderはTransit APIです。自動テストやローカルで外部APIへ接続せずに動作確認する場合は `ROUTE_PROVIDER=mock` を指定できます。
 
 ```text
-EKISPERT_API_KEY=
-ROUTE_PROVIDER=mock
+ROUTE_PROVIDER=transit
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
 
-`ROUTE_PROVIDER` は `mock` または `ekispert` を指定できます。`ekispert` の場合だけ `EKISPERT_API_KEY` が必要です。`CORS_ORIGINS` はカンマ区切りで複数指定できます。
+`ROUTE_PROVIDER` は `transit` または `mock` を指定できます。`CORS_ORIGINS` はカンマ区切りで複数指定できます。
 
 秘密情報を含む `.env` と `.env.local` はコミットしないでください。
 

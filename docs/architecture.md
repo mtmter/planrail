@@ -19,7 +19,9 @@ Browser / React
         +-- POST /api/route-search
                |
                +-- Mock Provider
-               +-- Ekispert Provider
+               +-- Transit Provider
+                       +-- /places/reverse
+                       +-- /guidance/plan
 ```
 
 フロントエンドは認証済みユーザーのuidを使い、Firestoreの `users/{uid}` 以下を直接読み書きします。FastAPIはFirestoreのCRUDを担当しません。
@@ -38,12 +40,12 @@ Browser / React
 ## バックエンド
 
 - `main.py`: FastAPIアプリ、CORS、リクエスト・レスポンスモデル、HTTPエラー変換
-- `routes_service.py`: Provider選択と駅すぱあと形式から共通Route形式への変換
-- `route_providers/mock_provider.py`: fixtureの読み込みと時刻調整
-- `route_providers/ekispert_provider.py`: 駅すぱあとAPIへのHTTPリクエスト
-- `fixtures/ekispert_route_demo.json`: Mock Providerが返す駅すぱあと形式データ
+- `routes_service.py`: Provider選択とTransit形式から共通Route形式への変換
+- `route_providers/transit_provider.py`: Transit API問い合わせ、Google Places座標の駅・停留所解決
+- `route_providers/mock_provider.py`: Transit形式fixtureの読み込みと時刻調整
+- `fixtures/transit_guidance_plan_demo.json`: Mock Providerが返すTransit guidance-plan形式データ
 
-Providerから取得したデータはバックエンドでアプリ共通Route JSONへ変換します。フロントエンドとFirestoreは駅すぱあとの生レスポンスを扱いません。
+Providerから取得したデータはバックエンドでアプリ共通Route JSONへ変換します。フロントエンドとFirestoreはTransit APIの生レスポンスを扱いません。
 
 ## データ境界
 
@@ -58,8 +60,4 @@ http://127.0.0.1:5173
 
 `CORS_ORIGINS` が設定されている場合は、カンマ区切りの値を使用します。
 
-## 残存している旧Google Routesコード
-
-`backend/routes_service.py` にはGoogle Routes APIを呼び出して共通Route形式へ変換する関数と、そのユニットテストが残っています。ただし、この関数は現在のProvider一覧にもFastAPIエンドポイントにも接続されていません。
-
-このコードを互換用として維持するか削除するかは未決定です。現在のプロダクト仕様には含めません。
+Google Placesは場所候補と緯度・経度の取得に引き続き使用します。経路検索ではTransit endpointへのリクエスト時だけ station/stop IDを利用し、共通Route JSONやFirestoreには含めません。Google Routes APIは現在の経路Providerとして使用しません。

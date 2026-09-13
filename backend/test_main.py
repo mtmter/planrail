@@ -6,9 +6,9 @@ from fastapi import HTTPException
 
 import main
 from routes_service import (
+    RouteEndpointResolutionError,
     RouteNotFoundError,
     RouteProviderError,
-    RoutesApiKeyError,
 )
 
 
@@ -148,11 +148,24 @@ class RouteSearchApiTest(unittest.TestCase):
 
                 self.assertEqual(context.exception.status_code, 400)
 
+    def test_route_search_requires_places_candidate_when_origin_has_no_coordinates(self):
+        request_data = {
+            **ROUTE_REQUEST,
+            "origin_lat": None,
+            "origin_lng": None,
+        }
+        with patch.dict(os.environ, {"ROUTE_PROVIDER": "transit"}, clear=True):
+            with self.assertRaises(HTTPException) as context:
+                main.search_direct_route(create_route_request(request_data))
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("Google Places", context.exception.detail)
+
     def test_route_search_converts_service_errors(self):
         error_cases = [
             (RouteNotFoundError("経路が見つかりませんでした"), 404),
+            (RouteEndpointResolutionError("Places候補を選択してください"), 400),
             (RouteProviderError("接続できませんでした"), 502),
-            (RoutesApiKeyError("APIキーがありません"), 500),
         ]
 
         for service_error, expected_status in error_cases:

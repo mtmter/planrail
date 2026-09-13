@@ -1,9 +1,9 @@
-from . import ekispert_provider, mock_provider
+from . import mock_provider, transit_provider
 
 
 ROUTE_PROVIDERS = {
+    "transit": transit_provider.get_route,
     "mock": mock_provider.get_route,
-    "ekispert": ekispert_provider.get_route,
 }
 
 

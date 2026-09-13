@@ -2,7 +2,7 @@ schema: spec-driven
 context: |
   PlanRail is a Japanese web scheduling application.
   Frontend: React, Vite, JavaScript, Firebase Authentication, Cloud Firestore.
-  Backend: Python, FastAPI, Mock and Ekispert route providers.
+  Backend: Python, FastAPI, Transit API and Mock route providers.
   The frontend performs schedule CRUD directly against user-scoped Firestore paths.
   FastAPI exposes only health and route-search application APIs.
   Keep README for human overview/setup, specs for current product behavior,

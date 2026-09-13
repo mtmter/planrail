@@ -1,10 +1,6 @@
-# Places and Route Search Specification
+# Places and Route Search Specification Delta
 
-## Purpose
-
-場所入力、Google Mapsリンク、および公共交通経路検索APIの現行契約を定義する。Provider選択、共通レスポンス、検索結果表示までをこの仕様の対象とする。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: 場所候補と文字入力を提供する
 
@@ -34,20 +30,6 @@
 
 - **WHEN** 選択したPlaces候補を含む予定を保存する
 - **THEN** システムは名前を `location_name`、住所を `destination`、Place IDを `destination_place_id`、座標を `destination_lat` と `destination_lng` に保存する
-
-### Requirement: Google Mapsリンクを生成する
-
-予定に場所名、住所、座標、またはPlace IDから検索可能な情報がある場合、システムは保存済みURLではなく表示時にGoogle Maps Search URLを生成しなければならない（MUST）。
-
-#### Scenario: Place IDがある
-
-- **WHEN** 予定に `destination_place_id` がある
-- **THEN** システムはURLへ `query_place_id` を含める
-
-#### Scenario: Place IDがない
-
-- **WHEN** 予定にPlace IDがなく、住所、場所名、または座標がある
-- **THEN** システムは利用可能な値を `query` とするリンクを表示する
 
 ### Requirement: 経路検索リクエストを受け付ける
 
@@ -186,16 +168,3 @@ RouteSegment:
 
 - **WHEN** 経路検索APIが既存の共通Route JSONを返す
 - **THEN** システムは現在の縦型Route結果と「この経路を登録」操作を表示し、coverage noticeを成功時のUIへ表示しない
-### Requirement: 経路結果を登録前に表示する
-
-フロントエンドは検索結果の出発・到着時刻、所要時間、出発地、目的地、および各区間を表示しなければならない（MUST）。
-
-#### Scenario: 検索に成功する
-
-- **WHEN** 経路検索APIが共通Route JSONを返す
-- **THEN** システムは縦型の経路結果と「この経路を登録」操作を表示する
-
-#### Scenario: 条件を変更する
-
-- **WHEN** ユーザーが検索条件の変更を選択する
-- **THEN** システムは検索結果をクリアして出発地入力へ戻る

@@ -6,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from routes_service import (
+    RouteEndpointResolutionError,
     RouteNotFoundError,
-    RoutesApiKeyError,
     RoutesServiceError,
     search_route,
 )
@@ -156,10 +156,10 @@ def search_direct_route(request: DirectRouteSearchRequest):
         )
     except RouteNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
-    except RoutesApiKeyError as error:
+    except RouteEndpointResolutionError as error:
         raise HTTPException(
-            status_code=500,
-            detail="経路検索のAPIキーが設定されていません",
+            status_code=400,
+            detail=str(error),
         ) from error
     except RoutesServiceError as error:
         raise HTTPException(

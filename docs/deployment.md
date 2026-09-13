@@ -4,7 +4,7 @@
 
 ## 現在の本番環境
 
-2026年9月8日にVercel CLIと公開URLで確認した構成です。
+2026年9月8日にVercel CLIと公開URLで確認した構成です。この確認時点ではTransit Providerへの置換前でした。
 
 | 用途 | Project | Root Directory | Framework Preset | 公開URL |
 | --- | --- | --- | --- | --- |
@@ -35,7 +35,7 @@ ROUTE_PROVIDER
 CORS_ORIGINS
 ```
 
-Productionには `EKISPERT_API_KEY` が登録されていません。公開経路検索が成功し、Mock fixtureと同じ構造・所要時間の結果を返すことから、現在の本番経路検索はMock Providerで動作していると判断できます。
+当時の公開経路検索はMock fixtureと同じ構造・所要時間の結果を返していました。`ROUTE_PROVIDER` の実値はリポジトリやVercel CLIから取得できないため、デプロイ時にはVercelのバックエンドProjectで値を確認し、`transit` に設定してください。`ROUTE_PROVIDER` が明示されている場合はアプリの既定値より優先されるため、古い `mock` 設定が残っているとTransitへ切り替わりません。Transit APIにAPIキーは不要です。
 
 公開環境では次を確認済みです。
 
@@ -63,14 +63,13 @@ Vercelの設定はリポジトリだけでは再現されないため、変更�
 | 用途 | Root Directory | 必要な主な設定 |
 | --- | --- | --- |
 | フロントエンド | `frontend` | Firebase、Google Maps、バックエンドURL |
-| バックエンド | `backend` | Route Provider、CORS、必要なら駅すぱあとキー |
+| バックエンド | `backend` | `ROUTE_PROVIDER=transit`、CORS |
 
 バックエンドの環境変数例:
 
 ```text
-ROUTE_PROVIDER=mock
+ROUTE_PROVIDER=transit
 CORS_ORIGINS=https://<frontend-domain>
-EKISPERT_API_KEY=
 ```
 
 フロントエンドの環境変数例:

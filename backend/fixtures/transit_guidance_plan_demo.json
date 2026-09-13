@@ -1,0 +1,126 @@
+{
+  "date": "20260825",
+  "type": "arrival",
+  "timezone": "Asia/Tokyo",
+  "from": {
+    "id": "geo:33.596,130.215",
+    "name": "九州大学 伊都キャンパス"
+  },
+  "to": {
+    "id": "geo:33.586,130.398",
+    "name": "Garraway F"
+  },
+  "live": {
+    "mode": "manual",
+    "tracking": "none",
+    "refreshAfterSecs": 0,
+    "anchorSecs": 0
+  },
+  "osm": {
+    "status": "notApplicable"
+  },
+  "coverage": {
+    "feeds": [],
+    "transitModes": ["bus", "rail"],
+    "notices": []
+  },
+  "decision": {
+    "strategy": "balanced",
+    "primaryFactors": [],
+    "tradeoffs": []
+  },
+  "options": [
+    {
+      "id": "demo-option-1",
+      "rank": 1,
+      "score": 1,
+      "recommended": true,
+      "selectedFor": "balanced",
+      "confidence": "high",
+      "metrics": {
+        "durationSecs": 3780,
+        "transitSecs": 2700,
+        "walkSecs": 600,
+        "waitSecs": 480,
+        "transferCount": 1,
+        "headwayLegCount": 0
+      },
+      "load": {
+        "overall": "medium",
+        "walking": "low",
+        "waiting": "low",
+        "transfer": "low",
+        "uncertainty": "low"
+      },
+      "decisionFactors": [],
+      "journey": {
+        "departureSecs": 32040,
+        "arrivalSecs": 35820,
+        "durationSecs": 3780,
+        "transferCount": 1,
+        "legs": [
+          {
+            "kind": "walk",
+            "from": {
+              "id": "geo:33.596,130.215",
+              "name": "九州大学 伊都キャンパス"
+            },
+            "to": {
+              "id": "demo:kyudai-engineering",
+              "name": "九大工学部"
+            },
+            "departureSecs": 32040,
+            "arrivalSecs": 32160
+          },
+          {
+            "kind": "transit",
+            "routeName": "昭和バス・九州大学線 2M（九大学研都市駅行）",
+            "mode": "bus",
+            "tripId": "demo-bus-trip",
+            "from": {
+              "id": "demo:kyudai-engineering",
+              "name": "九大工学部"
+            },
+            "to": {
+              "id": "demo:kyudai-gakkentoshi",
+              "name": "九大学研都市駅"
+            },
+            "departureSecs": 32160,
+            "arrivalSecs": 33360,
+            "headwayBased": false
+          },
+          {
+            "kind": "transit",
+            "routeName": "JR筑肥線・福岡市地下鉄空港線（福岡空港行）",
+            "mode": "rail",
+            "tripId": "demo-train-trip",
+            "from": {
+              "id": "demo:kyudai-gakkentoshi",
+              "name": "九大学研都市駅"
+            },
+            "to": {
+              "id": "demo:tenjin",
+              "name": "天神駅"
+            },
+            "departureSecs": 33840,
+            "arrivalSecs": 35340,
+            "headwayBased": false
+          },
+          {
+            "kind": "walk",
+            "from": {
+              "id": "demo:tenjin",
+              "name": "天神駅"
+            },
+            "to": {
+              "id": "geo:33.586,130.398",
+              "name": "Garraway F"
+            },
+            "departureSecs": 35340,
+            "arrivalSecs": 35820
+          }
+        ]
+      }
+    }
+  ]
+}
