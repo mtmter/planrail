@@ -105,6 +105,27 @@ class TransitRouteConverterTest(unittest.TestCase):
             context.exception.__cause__, transit_provider.TransitConnectionError
         )
 
+    def test_search_route_passes_optional_place_types_to_provider(self):
+        provider = Mock(return_value=load_fixture())
+
+        with patch("routes_service.get_route_provider", return_value=provider):
+            routes_service.search_route(
+                "33.596,130.215",
+                "33.586,130.398",
+                datetime(2026, 8, 25, 10, 12),
+                origin_place_types=["train_station"],
+                destination_place_types=["university"],
+            )
+
+        self.assertEqual(
+            provider.call_args.kwargs["origin_place_types"],
+            ["train_station"],
+        )
+        self.assertEqual(
+            provider.call_args.kwargs["destination_place_types"],
+            ["university"],
+        )
+
     def test_mock_fixture_uses_transit_converter_and_common_route_shape(self):
         result = routes_service.search_route(
             "33.596,130.215",
@@ -736,6 +757,8 @@ class TransitProviderTest(unittest.TestCase):
             datetime(2026, 8, 25, 1, 12, tzinfo=timezone.utc),
             origin_display_name="九州大学　伊都キャンパス駅",
             destination_display_name="Garraway F",
+            origin_place_types=["train_station"],
+            destination_place_types=["bus_stop"],
         )
 
         self.assertEqual(result["options"][0]["id"], "demo-option-1")
@@ -781,8 +804,117 @@ class TransitProviderTest(unittest.TestCase):
         )
         self.assertEqual(
             plan_request.kwargs["timeout"],
-            30.0,
+            45.0,
         )
+
+    @patch("route_providers.transit_provider.httpx.get")
+    def test_general_poi_pair_skips_reverse_lookup_and_uses_geo_endpoints(
+        self,
+        mock_get,
+    ):
+        mock_get.return_value = make_response(load_fixture())
+
+        transit_provider.get_route(
+            "33.596,130.215",
+            "33.586,130.398",
+            datetime(2026, 8, 25, 10, 12),
+            origin_display_name="University",
+            destination_display_name="Campus",
+            origin_place_types=["university"],
+            destination_place_types=["point_of_interest"],
+        )
+
+        self.assertEqual(mock_get.call_count, 1)
+        self.assertEqual(
+            mock_get.call_args.args[0],
+            transit_provider.GUIDANCE_PLAN_URL,
+        )
+        params = mock_get.call_args.kwargs["params"]
+        self.assertEqual(params["from"], "geo:33.596,130.215")
+        self.assertEqual(params["to"], "geo:33.586,130.398")
+        self.assertEqual(mock_get.call_args.kwargs["timeout"], 45.0)
+
+    @patch("route_providers.transit_provider.httpx.get")
+    def test_missing_place_types_uses_geo_without_reverse_lookup(self, mock_get):
+        mock_get.return_value = make_response(load_fixture())
+
+        transit_provider.get_route(
+            "33.596,130.215",
+            "33.586,130.398",
+            datetime(2026, 8, 25, 10, 12),
+            origin_display_name="九大学研都市駅",
+            destination_display_name="Garraway F",
+        )
+
+        self.assertEqual(mock_get.call_count, 1)
+        params = mock_get.call_args.kwargs["params"]
+        self.assertEqual(params["from"], "geo:33.596,130.215")
+        self.assertEqual(params["to"], "geo:33.586,130.398")
+
+    @patch("route_providers.transit_provider.httpx.get")
+    def test_only_the_selected_station_endpoint_runs_reverse_lookup(self, mock_get):
+        cases = [
+            (
+                "station origin",
+                ["train_station"],
+                ["university"],
+                "九大学研都市駅",
+                "University",
+                reverse_payload("九大学研都市駅", endpoint="feed:origin-station"),
+                "feed:origin-station",
+                "geo:33.586,130.398",
+            ),
+            (
+                "station destination",
+                ["university"],
+                ["bus_stop"],
+                "University",
+                "Garraway F",
+                reverse_payload(
+                    "Garraway F",
+                    endpoint="feed:destination-stop",
+                    kind="stop",
+                ),
+                "geo:33.596,130.215",
+                "feed:destination-stop",
+            ),
+        ]
+
+        for (
+            case_name,
+            origin_types,
+            destination_types,
+            origin_name,
+            destination_name,
+            reverse_result,
+            expected_origin,
+            expected_destination,
+        ) in cases:
+            with self.subTest(case=case_name):
+                mock_get.reset_mock()
+                mock_get.side_effect = [
+                    make_response(reverse_result),
+                    make_response(load_fixture()),
+                ]
+
+                transit_provider.get_route(
+                    "33.596,130.215",
+                    "33.586,130.398",
+                    datetime(2026, 8, 25, 10, 12),
+                    origin_display_name=origin_name,
+                    destination_display_name=destination_name,
+                    origin_place_types=origin_types,
+                    destination_place_types=destination_types,
+                )
+
+                self.assertEqual(mock_get.call_count, 2)
+                self.assertEqual(
+                    mock_get.call_args_list[0].args[0],
+                    transit_provider.PLACES_REVERSE_URL,
+                )
+                plan_params = mock_get.call_args_list[1].kwargs["params"]
+                self.assertEqual(plan_params["from"], expected_origin)
+                self.assertEqual(plan_params["to"], expected_destination)
 
     @patch("route_providers.transit_provider.httpx.get")
     def test_nearest_matching_station_wins(self, mock_get):
@@ -813,15 +945,24 @@ class TransitProviderTest(unittest.TestCase):
             make_response(load_fixture()),
         ]
 
-        transit_provider.get_route(
-            "33.596,130.215",
-            "33.586,130.398",
-            datetime(2026, 8, 25, 10, 12),
-            origin_display_name="九大学研都市駅",
-        )
+        with self.assertLogs(
+            "route_providers.transit_provider",
+            level="INFO",
+        ) as captured:
+            transit_provider.get_route(
+                "33.596,130.215",
+                "33.586,130.398",
+                datetime(2026, 8, 25, 10, 12),
+                origin_display_name="九大学研都市駅",
+                origin_place_types=["train_station"],
+            )
 
         plan_params = mock_get.call_args_list[1].kwargs["params"]
         self.assertEqual(plan_params["from"], "feed:nearest")
+        log_output = "\n".join(captured.output)
+        self.assertIn("endpoint=origin", log_output)
+        self.assertIn("endpoint_kind=stop reverse_lookup=True", log_output)
+        self.assertIn("route_search_stage=guidance_plan elapsed_ms=", log_output)
 
     @patch("route_providers.transit_provider.httpx.get")
     def test_snapped_station_endpoints_do_not_gain_external_walk_segments(
@@ -864,6 +1005,8 @@ class TransitProviderTest(unittest.TestCase):
             datetime(2026, 8, 25, 9, 30),
             origin_display_name="岡山駅",
             destination_display_name="津山駅",
+            origin_place_types=["train_station"],
+            destination_place_types=["train_station"],
         )
         route = routes_service.convert_transit_routes(
             response_data,
@@ -913,6 +1056,7 @@ class TransitProviderTest(unittest.TestCase):
             "33.586,130.398",
             datetime(2026, 8, 25, 10, 12),
             origin_display_name="目的施設",
+            origin_place_types=["train_station"],
         )
 
         self.assertEqual(
@@ -938,6 +1082,7 @@ class TransitProviderTest(unittest.TestCase):
                     "33.586,130.398",
                     datetime(2026, 8, 25, 10, 12),
                     origin_display_name="九大学研都市駅",
+                    origin_place_types=["train_station"],
                 )
                 self.assertEqual(mock_get.call_count, 2)
                 self.assertEqual(
@@ -946,7 +1091,7 @@ class TransitProviderTest(unittest.TestCase):
                 )
                 self.assertEqual(
                     mock_get.call_args_list[1].kwargs["timeout"],
-                    30.0,
+                    45.0,
                 )
                 self.assertEqual(
                     mock_get.call_args_list[1].kwargs["params"]["from"],

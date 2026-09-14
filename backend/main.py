@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime, timedelta
+from time import perf_counter
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,6 +54,7 @@ class RouteSearchRequest(BaseModel):
     origin_place_id: str | None = None
     origin_lat: float | None = None
     origin_lng: float | None = None
+    origin_place_types: list[str] | None = None
 
 
 class RouteSearchEvent(BaseModel):
@@ -61,6 +63,7 @@ class RouteSearchEvent(BaseModel):
     destination: str | None = None
     destination_lat: float | None = None
     destination_lng: float | None = None
+    destination_place_types: list[str] | None = None
     arrival_buffer_minutes: int | None = None
 
 
@@ -170,6 +173,17 @@ def health():
     response_model=RouteSearchResponse,
 )
 def search_direct_route(request: DirectRouteSearchRequest):
+    search_started = perf_counter()
+    try:
+        return _search_direct_route(request)
+    finally:
+        logger.info(
+            "route_search_stage=total elapsed_ms=%.3f",
+            (perf_counter() - search_started) * 1000,
+        )
+
+
+def _search_direct_route(request: DirectRouteSearchRequest):
     event = request.event
     origin_name = clean_optional_text(request.origin_name)
     origin_address = clean_optional_text(request.origin_address)
@@ -221,6 +235,8 @@ def search_direct_route(request: DirectRouteSearchRequest):
             desired_arrival_at,
             origin_display_name=origin_display_name,
             destination_display_name=destination_display_name,
+            origin_place_types=request.origin_place_types,
+            destination_place_types=event.destination_place_types,
         )
     except RouteNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error

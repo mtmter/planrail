@@ -36,6 +36,7 @@ function getSavedPlace(event) {
     place_id: event.destination_place_id ?? "",
     lat: event.destination_lat ?? null,
     lng: event.destination_lng ?? null,
+    types: event.destination_place_types ?? [],
   };
 }
 
@@ -236,6 +237,7 @@ function EventDetailsModal({
         destination_place_id: selectedPlace?.place_id || null,
         destination_lat: selectedPlace?.lat ?? null,
         destination_lng: selectedPlace?.lng ?? null,
+        destination_place_types: selectedPlace?.types ?? [],
         arrival_buffer_minutes:
           arrivalBufferMinutes === "" ? null : Number(arrivalBufferMinutes),
       });

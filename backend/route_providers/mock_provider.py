@@ -26,6 +26,8 @@ def get_route(
     arrival_at,
     origin_display_name=None,
     destination_display_name=None,
+    origin_place_types=None,
+    destination_place_types=None,
 ):
     """Transit形式のデモfixtureを到着希望日時に合わせて返す。"""
     with FIXTURE_PATH.open(encoding="utf-8") as fixture_file:
