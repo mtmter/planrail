@@ -36,8 +36,8 @@ Googleアカウントでログインすると、ユーザーごとのデータ�
 
 ## 本番環境
 
-- フロントエンド: [https://ryuute-v2-frontend.vercel.app](https://ryuute-v2-frontend.vercel.app)
-- バックエンド・ヘルスチェック: [https://ryuute-v2-backend.vercel.app/api/health](https://ryuute-v2-backend.vercel.app/api/health)
+- フロントエンド: [https://planrail-frontend.vercel.app](https://planrail-frontend.vercel.app)
+- バックエンド・ヘルスチェック: [https://planrail-backend.vercel.app/api/health](https://planrail-backend.vercel.app/api/health)
 
 フロントエンドとバックエンドは、同じリポジトリから別々のVercel Projectとしてデプロイしています。Root Directory、Framework Preset、環境変数などの再現手順は[デプロイ資料](docs/deployment.md)を参照してください。
 
