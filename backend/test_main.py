@@ -1,10 +1,14 @@
+import json
 import os
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from fastapi import HTTPException
+import httpx
 
 import main
+from route_providers import transit_provider
 from routes_service import (
     RouteEndpointResolutionError,
     RouteNotFoundError,
@@ -30,6 +34,14 @@ ROUTE_REQUEST = {
         "arrival_buffer_minutes": 10,
     },
 }
+
+TRANSIT_FIXTURE_PATH = (
+    Path(__file__).parent / "fixtures" / "transit_guidance_plan_demo.json"
+)
+
+
+def load_transit_fixture():
+    return json.loads(TRANSIT_FIXTURE_PATH.read_text(encoding="utf-8"))
 
 
 def create_route_request(request_data=ROUTE_REQUEST):
@@ -176,6 +188,33 @@ class RouteSearchApiTest(unittest.TestCase):
         self.assertEqual(context.exception.status_code, 400)
         self.assertIn("Google Places", context.exception.detail)
 
+    def test_route_search_passes_optional_place_types_to_route_service(self):
+        request_data = {
+            **ROUTE_REQUEST,
+            "origin_place_types": ["train_station"],
+            "event": {
+                **ROUTE_REQUEST["event"],
+                "destination_place_types": ["university"],
+            },
+        }
+        with patch("main.search_route", return_value={}) as search_route:
+            main.search_direct_route(create_route_request(request_data))
+
+        self.assertEqual(
+            search_route.call_args.kwargs["origin_place_types"],
+            ["train_station"],
+        )
+        self.assertEqual(
+            search_route.call_args.kwargs["destination_place_types"],
+            ["university"],
+        )
+
+    def test_route_search_accepts_legacy_requests_without_place_types(self):
+        request = create_route_request()
+
+        self.assertIsNone(request.origin_place_types)
+        self.assertIsNone(request.event.destination_place_types)
+
     def test_route_search_converts_service_errors(self):
         error_cases = [
             (RouteNotFoundError("経路が見つかりませんでした"), 404),
@@ -255,6 +294,116 @@ class RouteSearchApiTest(unittest.TestCase):
         for sensitive_value in (
             "USER_NAME_SENTINEL",
             "PLACE_ID_SENTINEL",
+            "12.345678",
+            "98.765432",
+            "21.987654",
+            "87.654321",
+        ):
+            self.assertNotIn(sensitive_value, log_output)
+
+    def test_route_search_timing_logs_report_stages_without_location_data(self):
+        request_data = {
+            **ROUTE_REQUEST,
+            "origin_name": "ORIGIN_NAME_SENTINEL",
+            "origin_address": "ORIGIN_ADDRESS_SENTINEL",
+            "origin_place_id": "ORIGIN_PLACE_ID_SENTINEL",
+            "origin_lat": 12.345678,
+            "origin_lng": 98.765432,
+            "origin_place_types": ["university"],
+            "event": {
+                **ROUTE_REQUEST["event"],
+                "location_name": "DESTINATION_NAME_SENTINEL",
+                "destination": "DESTINATION_ADDRESS_SENTINEL",
+                "destination_lat": 21.987654,
+                "destination_lng": 87.654321,
+                "destination_place_types": ["university"],
+            },
+        }
+        transit_response = Mock()
+        transit_response.is_success = True
+        transit_response.json.return_value = load_transit_fixture()
+
+        with (
+            patch.dict(os.environ, {"ROUTE_PROVIDER": "transit"}, clear=True),
+            patch(
+                "route_providers.transit_provider.httpx.get",
+                return_value=transit_response,
+            ) as transit_get,
+            self.assertLogs(level="INFO") as captured,
+        ):
+            result = main.search_direct_route(create_route_request(request_data))
+
+        self.assertEqual(len(result["candidates"]), 3)
+        self.assertEqual(transit_get.call_count, 1)
+        log_output = "\n".join(captured.output)
+        for stage in (
+            "route_search_stage=endpoint_resolution endpoint=origin",
+            "route_search_stage=endpoint_resolution endpoint=destination",
+            "route_search_stage=guidance_plan",
+            "route_search_stage=route_candidate_conversion",
+            "route_search_stage=total",
+        ):
+            self.assertIn(stage, log_output)
+        self.assertIn("endpoint_kind=geo reverse_lookup=False", log_output)
+        self.assertIn("elapsed_ms=", log_output)
+        for sensitive_value in (
+            "ORIGIN_NAME_SENTINEL",
+            "ORIGIN_ADDRESS_SENTINEL",
+            "ORIGIN_PLACE_ID_SENTINEL",
+            "DESTINATION_NAME_SENTINEL",
+            "DESTINATION_ADDRESS_SENTINEL",
+            "12.345678",
+            "98.765432",
+            "21.987654",
+            "87.654321",
+        ):
+            self.assertNotIn(sensitive_value, log_output)
+
+    def test_timeout_timing_logs_are_emitted_without_exception_message(self):
+        sensitive_timeout = (
+            "read timed out for 21.987654,87.654321 "
+            "PLACE_ID_SENTINEL DESTINATION_NAME_SENTINEL"
+        )
+        request_data = {
+            **ROUTE_REQUEST,
+            "origin_name": "ORIGIN_NAME_SENTINEL",
+            "origin_address": "ORIGIN_ADDRESS_SENTINEL",
+            "origin_place_id": "ORIGIN_PLACE_ID_SENTINEL",
+            "origin_lat": 12.345678,
+            "origin_lng": 98.765432,
+            "origin_place_types": ["university"],
+            "event": {
+                **ROUTE_REQUEST["event"],
+                "location_name": "DESTINATION_NAME_SENTINEL",
+                "destination": "DESTINATION_ADDRESS_SENTINEL",
+                "destination_lat": 21.987654,
+                "destination_lng": 87.654321,
+                "destination_place_types": ["university"],
+            },
+        }
+
+        with (
+            patch.dict(os.environ, {"ROUTE_PROVIDER": "transit"}, clear=True),
+            patch(
+                "route_providers.transit_provider.httpx.get",
+                side_effect=httpx.TimeoutException(sensitive_timeout),
+            ),
+            self.assertLogs(level="INFO") as captured,
+            self.assertRaises(HTTPException) as error_context,
+        ):
+            main.search_direct_route(create_route_request(request_data))
+
+        self.assertEqual(error_context.exception.status_code, 504)
+        log_output = "\n".join(captured.output)
+        self.assertIn("route_search_stage=guidance_plan", log_output)
+        self.assertIn("route_search_stage=total", log_output)
+        for sensitive_value in (
+            sensitive_timeout,
+            "ORIGIN_NAME_SENTINEL",
+            "ORIGIN_ADDRESS_SENTINEL",
+            "ORIGIN_PLACE_ID_SENTINEL",
+            "DESTINATION_NAME_SENTINEL",
+            "DESTINATION_ADDRESS_SENTINEL",
             "12.345678",
             "98.765432",
             "21.987654",

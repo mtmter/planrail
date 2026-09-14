@@ -1,6 +1,8 @@
+import logging
 import math
 import unicodedata
 from datetime import datetime, timedelta, timezone
+from time import perf_counter
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
@@ -9,11 +11,23 @@ import httpx
 TRANSIT_API_BASE_URL = "https://api.transit.ls8h.com"
 GUIDANCE_PLAN_URL = f"{TRANSIT_API_BASE_URL}/api/v1/guidance/plan"
 PLACES_REVERSE_URL = f"{TRANSIT_API_BASE_URL}/api/v1/places/reverse"
-GUIDANCE_PLAN_TIMEOUT_SECONDS = 30.0
+GUIDANCE_PLAN_TIMEOUT_SECONDS = 45.0
 REVERSE_LOOKUP_TIMEOUT_SECONDS = 10.0
 JAPAN_TIMEZONE = ZoneInfo("Asia/Tokyo")
 STATION_REVERSE_RADIUS_METERS = 300
 STATION_REVERSE_LIMIT = 10
+PUBLIC_TRANSPORT_PLACE_TYPES = frozenset(
+    {
+        "train_station",
+        "subway_station",
+        "transit_station",
+        "bus_station",
+        "bus_stop",
+        "light_rail_station",
+        "transit_stop",
+    }
+)
+logger = logging.getLogger(__name__)
 LOCATION_SUFFIXES = (
     "busstop",
     "停留所",
@@ -58,6 +72,8 @@ def get_route(
     arrival_at,
     origin_display_name=None,
     destination_display_name=None,
+    origin_place_types=None,
+    destination_place_types=None,
 ):
     """Transit APIで到着時刻を指定した経路候補を取得する。"""
     # Validate both endpoints before any optional reverse-lookup request.
@@ -66,10 +82,17 @@ def get_route(
             "出発地または目的地の位置情報を解決できませんでした。"
             "Google Placesの候補を選択してください"
         )
-    origin_endpoint = resolve_planner_endpoint(origin, origin_display_name)
+    origin_endpoint = resolve_planner_endpoint(
+        origin,
+        origin_display_name,
+        origin_place_types,
+        endpoint_role="origin",
+    )
     destination_endpoint = resolve_planner_endpoint(
         destination,
         destination_display_name,
+        destination_place_types,
+        endpoint_role="destination",
     )
     arrival_datetime = _as_japan_datetime(arrival_at)
 
@@ -91,12 +114,19 @@ def get_route(
     if destination_label:
         query_parameters["toLabel"] = destination_label
 
-    response_data = _request_json(
-        GUIDANCE_PLAN_URL,
-        query_parameters,
-        operation="Transit guidance plan",
-        timeout_seconds=GUIDANCE_PLAN_TIMEOUT_SECONDS,
-    )
+    plan_started = perf_counter()
+    try:
+        response_data = _request_json(
+            GUIDANCE_PLAN_URL,
+            query_parameters,
+            operation="Transit guidance plan",
+            timeout_seconds=GUIDANCE_PLAN_TIMEOUT_SECONDS,
+        )
+    finally:
+        logger.info(
+            "route_search_stage=guidance_plan elapsed_ms=%.3f",
+            (perf_counter() - plan_started) * 1000,
+        )
     if not isinstance(response_data, dict):
         raise TransitResponseError(
             "Transit guidance planのレスポンスがJSONオブジェクトではありません"
@@ -104,8 +134,14 @@ def get_route(
     return response_data
 
 
-def resolve_planner_endpoint(location, display_name=None):
+def resolve_planner_endpoint(
+    location,
+    display_name=None,
+    place_types=None,
+    endpoint_role="endpoint",
+):
     """座標地点を駅/停留所endpointまたはgeo endpointへ解決する。"""
+    resolution_started = perf_counter()
     coordinates = _parse_coordinates(location)
     if coordinates is None:
         raise TransitEndpointResolutionError(
@@ -115,21 +151,49 @@ def resolve_planner_endpoint(location, display_name=None):
 
     latitude, longitude = coordinates
     label = display_name.strip() if isinstance(display_name, str) else ""
-    if label:
-        try:
-            station_endpoint = _find_matching_station(
-                latitude,
-                longitude,
-                label,
-            )
-        except TransitProviderError:
-            # Reverse lookup is an optional precision improvement. Planning can
-            # continue with the geographic endpoint when it is unavailable.
-            station_endpoint = None
-        if station_endpoint:
-            return station_endpoint
+    reverse_lookup_performed = False
+    endpoint_kind = "geo"
+    endpoint = f"geo:{latitude},{longitude}"
+    try:
+        if label and _has_public_transport_type(place_types):
+            reverse_lookup_performed = True
+            try:
+                station_match = _find_matching_station(
+                    latitude,
+                    longitude,
+                    label,
+                )
+            except TransitProviderError:
+                # Reverse lookup is an optional precision improvement. Planning can
+                # continue with the geographic endpoint when it is unavailable.
+                station_match = None
+            if station_match:
+                endpoint, endpoint_kind = station_match
+        return endpoint
+    finally:
+        safe_endpoint_role = (
+            endpoint_role
+            if endpoint_role in {"origin", "destination"}
+            else "endpoint"
+        )
+        logger.info(
+            "route_search_stage=endpoint_resolution endpoint=%s elapsed_ms=%.3f "
+            "endpoint_kind=%s reverse_lookup=%s",
+            safe_endpoint_role,
+            (perf_counter() - resolution_started) * 1000,
+            endpoint_kind,
+            reverse_lookup_performed,
+        )
 
-    return f"geo:{latitude},{longitude}"
+
+def _has_public_transport_type(place_types):
+    if not isinstance(place_types, (list, tuple, set, frozenset)):
+        return False
+    return any(
+        isinstance(place_type, str)
+        and place_type in PUBLIC_TRANSPORT_PLACE_TYPES
+        for place_type in place_types
+    )
 
 
 def _find_matching_station(latitude, longitude, display_name):
@@ -192,12 +256,12 @@ def _find_matching_station(latitude, longitude, display_name):
             continue
 
         if normalize_place_name(place_name) == normalized_display_name:
-            matches.append((float(distance), endpoint))
+            matches.append((float(distance), endpoint, kind))
 
     if not matches:
         return None
     matches.sort(key=lambda candidate: candidate[0])
-    return matches[0][1]
+    return matches[0][1], matches[0][2]
 
 
 def normalize_place_name(value):

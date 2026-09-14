@@ -1,7 +1,9 @@
 import math
+import logging
 import os
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from time import perf_counter
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from dotenv import load_dotenv
@@ -18,6 +20,7 @@ load_dotenv(Path(__file__).with_name(".env"))
 
 DEFAULT_ROUTE_PROVIDER = "transit"
 JAPAN_TIMEZONE = ZoneInfo("Asia/Tokyo")
+logger = logging.getLogger(__name__)
 
 
 class RoutesServiceError(Exception):
@@ -51,6 +54,8 @@ def search_route(
     provider_name=None,
     origin_display_name=None,
     destination_display_name=None,
+    origin_place_types=None,
+    destination_place_types=None,
 ):
     """設定されたProviderからTransit形式データを取得して変換する。"""
     selected_provider = (
@@ -65,6 +70,8 @@ def search_route(
             arrival_at,
             origin_display_name=origin_display_name,
             destination_display_name=destination_display_name,
+            origin_place_types=origin_place_types,
+            destination_place_types=destination_place_types,
         )
     except TransitEndpointResolutionError as error:
         raise RouteEndpointResolutionError(str(error)) from error
@@ -75,11 +82,18 @@ def search_route(
     except (OSError, ValueError, NotImplementedError) as error:
         raise RouteProviderError(str(error)) from error
 
-    return convert_transit_routes(
-        response_data,
-        origin_display_name or origin,
-        destination_display_name or destination,
-    )
+    conversion_started = perf_counter()
+    try:
+        return convert_transit_routes(
+            response_data,
+            origin_display_name or origin,
+            destination_display_name or destination,
+        )
+    finally:
+        logger.info(
+            "route_search_stage=route_candidate_conversion elapsed_ms=%.3f",
+            (perf_counter() - conversion_started) * 1000,
+        )
 
 
 def convert_transit_routes(response_data, origin, destination):

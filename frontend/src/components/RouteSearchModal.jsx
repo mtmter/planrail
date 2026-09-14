@@ -72,6 +72,7 @@ function RouteSearchModal({
             origin_place_id: originPlace.place_id || null,
             origin_lat: originPlace.lat,
             origin_lng: originPlace.lng,
+            origin_place_types: originPlace.types || [],
           }
         : { origin_name: trimmedOrigin };
       const result = await onSearch(event.id, originRequest);

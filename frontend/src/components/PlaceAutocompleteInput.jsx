@@ -80,7 +80,13 @@ function PlaceAutocompleteInput({
           try {
             const place = selectEvent.placePrediction.toPlace();
             await place.fetchFields({
-              fields: ["id", "displayName", "formattedAddress", "location"],
+              fields: [
+                "id",
+                "displayName",
+                "formattedAddress",
+                "location",
+                "types",
+              ],
             });
 
             if (isCancelled) {
@@ -99,6 +105,7 @@ function PlaceAutocompleteInput({
               place_id: place.id || "",
               lat: place.location?.lat() ?? null,
               lng: place.location?.lng() ?? null,
+              types: Array.isArray(place.types) ? place.types : [],
             });
             setErrorMessage("");
           } catch {

@@ -408,6 +408,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
         destination: event.destination,
         destination_lat: event.destination_lat,
         destination_lng: event.destination_lng,
+        destination_place_types: event.destination_place_types ?? [],
         arrival_buffer_minutes: event.arrival_buffer_minutes,
       },
     });

@@ -73,6 +73,7 @@ function AddEventModal({ initialValues, onClose, onSubmit }) {
         destination_place_id: selectedPlace?.place_id || null,
         destination_lat: selectedPlace?.lat ?? null,
         destination_lng: selectedPlace?.lng ?? null,
+        destination_place_types: selectedPlace?.types ?? [],
         arrival_buffer_minutes:
           arrivalBufferMinutes === "" ? null : Number(arrivalBufferMinutes),
       });
