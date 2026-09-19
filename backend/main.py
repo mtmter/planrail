@@ -23,6 +23,11 @@ DEFAULT_CORS_ORIGINS = [
 ]
 logger = logging.getLogger(__name__)
 
+# HTTP client INFO logs include request URLs and may expose location query
+# parameters. Route-search diagnostics must remain location-free.
+for _http_client_logger_name in ("httpx", "httpcore"):
+    logging.getLogger(_http_client_logger_name).setLevel(logging.WARNING)
+
 
 class _SafeLoggedException(Exception):
     """Cause types and tracebacks for logs without raw exception messages."""
