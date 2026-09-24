@@ -1103,6 +1103,76 @@
   outline: 3px solid rgb(86 126 211 / 15%);
 }
 
+.selected-place-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid #cbd9ef;
+  border-radius: 8px;
+  background: #f4f8ff;
+}
+
+.selected-place-icon {
+  flex: 0 0 auto;
+  line-height: 1.5;
+}
+
+.selected-place-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.selected-place-name,
+.selected-place-address {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.selected-place-name {
+  color: #283b62;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.selected-place-name span {
+  margin-left: 6px;
+  color: #27835f;
+}
+
+.selected-place-address {
+  margin-top: 2px;
+  color: #687386;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.selected-place-change {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 0;
+  border-radius: 5px;
+  color: #2d5dcc;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.selected-place-change:hover:not(:disabled) {
+  background: #e6efff;
+}
+
+.selected-place-change:focus-visible {
+  outline: 3px solid rgb(86 126 211 / 18%);
+}
+
+.selected-place-change:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .event-details-content,
 .delete-confirmation {
   display: grid;
