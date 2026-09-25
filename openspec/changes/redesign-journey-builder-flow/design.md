@@ -26,11 +26,11 @@ Builderはcreate/edit/Event-linkedの全モードで次の同じ状態遷移を�
 
 | 状態 | 主要表示 | 主な遷移 |
 | --- | --- | --- |
-| `input` | 出発地、target、任意の固定移動と「経路を検索」または「経路を再検索」。公共交通結果・未設定ROUTEは表示しない | 有効入力で検索を押すと`searching` |
+| `input` | 出発地、target、任意の固定移動と「経路を検索」または「経路を再検索」。検索条件が変わっていない場合は「確認に戻る」も表示する。公共交通結果・未設定ROUTEは表示しない | 有効入力で検索を押すと`searching`。結果が有効なら再検索せず`preview`へ戻れる |
 | `searching` | 二重送信を防ぐdisabled操作、spinner相当、「経路を検索中...」、完了数/全件数 | 全gap終了で`preview`。0 gapも検証後`preview` |
-| `preview` | 完成した移動予定を一本のタイムラインとして主要表示。「別の候補を見る」「条件を変更」「この移動予定を確定」 | 条件を変更すると`input`。候補変更は`preview`内で完結 |
+| `preview` | 完成した移動予定を一本のタイムラインとして主要表示。「条件を変更」「この移動予定を確定」。候補cacheがある公共交通部分だけ「別の候補を見る」を表示する | 条件を変更すると`input`。候補変更は`preview`内で完結 |
 
-一部失敗は`preview`のpartial-result substateで成功部分と失敗地点間を示し、確定を無効にする。入力不備は`input`内のvalidation表示とする。`preview`で全入力欄と全候補一覧を常時併置しない。「条件を変更」で入力画面へ戻り、検索条件に実際の変更があれば結果をdirtyにする。変更せず戻る場合は有効な既存previewを保持して戻れる。変更後は全gapの「経路を再検索」が完了するまで確定不可とする。edit modeは保存済みrouteと現在の入力が一致すれば初期`preview`を表示できるが、候補一覧を新たに得る場合も全gap再検索を使う。
+一部失敗は`preview`のpartial-result substateで成功部分と失敗地点間・理由を示し、確定を無効にする。そこに「経路を再検索」を置き、条件を変えずに押せるようにする。この操作は成功gapも含む全gapを一括再検索し、自動retryはしない。入力不備は`input`内のvalidation表示とする。`preview`で全入力欄と全候補一覧を常時併置しない。「条件を変更」で入力画面へ戻り、検索条件に実際の変更があれば結果をdirtyにする。変更せず戻る場合は有効な既存previewを保持して戻れる。変更後は全gapの「経路を再検索」が完了するまで確定不可とする。edit modeは保存済みrouteと現在の入力が一致すれば初期`preview`を表示できるが、保存文書には候補一覧がない。初期previewでは「別の候補を見る」を開かず、「候補を再検索」を提供する。これも全gap一括検索であり、完了後は候補cacheを持つ通常previewで各区間の候補を開ける。
 
 ### 2. gap 生成と固定移動の整列
 
@@ -50,17 +50,17 @@ gap の上下限は固定入力と target だけで決まり、別 gap の検索
 
 ### 5. 候補、確定、dirty state
 
-各 gap の有効候補から `recommended_candidate_id` が存在すればそれを、なければ先頭を自動選択する。backend はフィルタ後に先頭を推奨 ID へ更新する場合があるため、API が返した ID を正とする。最大3候補は普段閉じ、タイムライン内の公共交通区間の `別の候補を見る` から表示する。出発/到着、所要時間、乗換、徒歩、運賃は既存 formatter を使い、nullable 値を0と表示しない。候補変更は当該 gap の選択だけを更新し、他の gap の候補・選択を保持する。選択後にも上下限を検証する。
+各 gap の有効候補から `recommended_candidate_id` が存在すればそれを、なければ先頭を自動選択する。backend はフィルタ後に先頭を推奨 ID へ更新する場合があるため、API が返した ID を正とする。最大3候補は普段閉じ、検索による候補cacheがあるときだけタイムライン内の公共交通区間の `別の候補を見る` から表示する。出発/到着、所要時間、乗換、徒歩、運賃は既存 formatter を使い、nullable 値を0と表示しない。候補変更は当該 gap の選択だけを更新し、他の gap の候補・選択を保持する。選択後にも上下限を検証する。
 
-地点・日時・FIXED の追加/削除/並べ替えを含む検索条件の変更は、結果一式を dirty として確定を無効にする。label の変更だけは検索条件に影響しないため選択済み経路を維持する。候補変更も dirty にしない。変更後は `経路を再検索` で全 gap を作り直す。確定時に検索条件だけの revision と検索 revision の一致、全 gap 成功、地点・時刻接続を確認してから既存 `serializeJourney` に渡す。保存境界でも検証し、draft、未選択候補、candidate ID、warning、Transit 生データを保存しない。
+検索条件のfingerprintには出発地、目的地、到着期限、FIXEDの乗降地点・発着日時・追加/削除による一覧を含める。これらの変更は結果一式をdirtyとして確定を無効にする。FIXED labelのみの変更はfingerprintに含めず、選択済み経路を維持する。`preview`から`input`へ戻ってlabelだけを変更した場合は「確認に戻る」で再検索せず既存previewへ戻り、変更後のlabelを表示する。候補変更もdirtyにしない。検索条件が変わった場合は `経路を再検索` で全 gap を作り直す。確定時に検索条件だけの revision と検索 revision の一致、全 gap 成功、地点・時刻接続を確認してから既存 `serializeJourney` に渡す。保存境界でも検証し、draft、未選択候補、candidate ID、warning、Transit 生データを保存しない。
 
 ### 6. create / edit / Event-linked
 
-単一 Builder に `mode=create|edit`、`event?`、`journey?` を渡す。Event-linked は現在の Event の地点と `getEventArrivalDeadline` を target に使い、再入力させない。現在の Event と保存済み target が異なる場合、開いた時点で結果を dirty にし、再検索を求める。保存済み Journey から最初の section の origin、最後の target、FIXED 一覧を復元し、既存 ROUTE が現在の入力と一致し有効なら編集前プレビューへ表示できる。候補一覧は保存されないので既存 route を選択済み1件として扱い、別候補を見るには一括再検索が必要である。Standalone 編集は同じ ID に `setDoc` し、新規 ID を発行しない。Event-linked も既存 `event-{eventId}` を置換する。詳細の `編集` から Builder を開き、`削除` は対象 Journey 文書のみを確認後削除する。Event 自体と準備項目は削除しない。既存 Event-linked 再計画の警告と Event からの導線を維持する。
+単一 Builder に `mode=create|edit`、`event?`、`journey?` を渡す。Event-linked は現在の Event の地点と `getEventArrivalDeadline` を target に使い、再入力させない。targetの変更はEvent編集で行う。現在の Event と保存済み target が異なる場合、開いた時点で結果を dirty にし、再検索を求める。保存済み Journey から最初の section の origin、最後の target、FIXED 一覧を復元し、既存 ROUTE が現在の入力と一致し有効なら初期プレビューへ表示できる。候補一覧は保存されないので既存 route を選択済み1件として扱い、「候補を再検索」で全gapを検索するまで区間候補変更は出さない。Standalone 編集は同じ ID に `setDoc` し、新規 ID を発行しない。Event-linked も既存 `event-{eventId}` を置換する。詳細の `編集` から Builder を開き、`削除` は対象 Journey 文書のみを確認後削除する。Event 自体と準備項目は削除しない。既存 Event-linked 再計画の警告と Event からの導線を維持する。
 
 ### 7. Places state と検索不能の切り分け
 
-`EventPlaceField` の選択済み表示を汎用のshared place-field/presentationへ切り出し、EventとJourneyの双方が同じコンポーネントと `selected-place-card` CSSを使用する。Journey専用の類似デザインは作らない。選択済み状態は📍、地点名、✓、取得済み住所、`変更`を同一構造で表示する。Standalone の両端、FIXED の両端、必要な Event 由来の表示に適用する。選択時に `point` 全体を保持する。変更または自由入力開始時には旧 `point` をクリアし、名前だけが残っていても検索可能と扱わない。選択済み point の name/address/place_id/lat/lng/types を gap 生成と request へ欠落・入れ替えなく渡すテストを置く。有効座標でも検索失敗した場合はフロントエンドの state/request 構築、API endpoint 解決、Transit の経路なしを別々に確認し、原因に応じて修正する。Transit の真の経路なしは地点間の失敗として表示する。
+`EventPlaceField` の選択済み表示を汎用のshared place-field/presentationへ切り出し、EventとJourneyの双方が同じコンポーネントと `selected-place-card` CSSを使用する。Journey専用の類似デザインは作らない。共有コンポーネントはeditable/readOnlyを分ける。Standalone の両端とFIXEDの両端は📍、地点名、✓、取得済み住所、`変更`を表示し、変更からAutocompleteへ戻せる。Event-linked targetは同じ📍、地点名、✓、取得済み住所をread-only表示し、Builder内に「変更」を出さない。targetを変えるにはEventを編集する。選択時に `point` 全体を保持する。変更または自由入力開始時には旧 `point` をクリアし、名前だけが残っていても検索可能と扱わない。選択済み point の name/address/place_id/lat/lng/types を gap 生成と request へ欠落・入れ替えなく渡すテストを置く。有効座標でも検索失敗した場合はフロントエンドの state/request 構築、API endpoint 解決、Transit の経路なしを別々に確認し、原因に応じて修正する。Transit の真の経路なしは地点間の失敗として表示する。
 
 ### 8. 一続きの表示と追加モーダル
 
