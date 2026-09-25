@@ -3,7 +3,7 @@ import { parseDateTime, toDateTimeInputValue } from "../dateUtils";
 import DateTimePicker from "./DateTimePicker";
 import EventPlaceField from "./EventPlaceField";
 
-function AddEventModal({ initialValues, onClose, onSubmit }) {
+function AddEventModal({ initialValues, onClose, onSubmit, embedded = false }) {
   const [title, setTitle] = useState("");
   const [eventStartAt, setEventStartAt] = useState(initialValues.eventStartAt);
   const [eventEndAt, setEventEndAt] = useState(initialValues.eventEndAt);
@@ -15,6 +15,7 @@ function AddEventModal({ initialValues, onClose, onSubmit }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    if (embedded) return undefined;
     function handleKeyDown(event) {
       if (event.key === "Escape" && !isSubmitting) {
         onClose();
@@ -29,7 +30,7 @@ function AddEventModal({ initialValues, onClose, onSubmit }) {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isSubmitting, onClose]);
+  }, [embedded, isSubmitting, onClose]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -99,6 +100,32 @@ function AddEventModal({ initialValues, onClose, onSubmit }) {
     }
   }
 
+  const content = (
+    <form className="event-form" onSubmit={handleSubmit}>
+      <div className="modal-form-field">
+        <label htmlFor="event-title">予定タイトル</label>
+        <input id="event-title" type="text" value={title} placeholder="例：ミーティング" autoFocus required onChange={(event) => setTitle(event.target.value)} />
+      </div>
+      <div className="modal-date-fields">
+        <DateTimePicker id="event-start-at" label="開始日時" value={eventStartAt} onChange={handleEventStartChange} />
+        <DateTimePicker id="event-end-at" label="終了日時" value={eventEndAt} min={eventStartAt} onChange={setEventEndAt} />
+      </div>
+      <EventPlaceField id="event-location" value={locationName} selectedPlace={selectedPlace} disabled={isSubmitting}
+        onChange={(next) => { setLocationName(next); setSelectedPlace(null); }}
+        onPlaceSelect={(place) => { setSelectedPlace(place); if (place) setLocationName(place.name); }} />
+      <div className="modal-form-field"><label htmlFor="event-arrival-buffer-minutes">到着余裕時間（分） <span>任意</span></label>
+        <input id="event-arrival-buffer-minutes" type="number" min="0" step="1" inputMode="numeric" value={arrivalBufferMinutes}
+          placeholder="例：10" onChange={(event) => setArrivalBufferMinutes(event.target.value)} /></div>
+      <div className="modal-form-field"><label htmlFor="event-description">説明 <span>任意</span></label>
+        <textarea id="event-description" value={description} placeholder="補足があれば入力してください" onChange={(event) => setDescription(event.target.value)} /></div>
+      {errorMessage && <p className="modal-error-message" role="alert">{errorMessage}</p>}
+      <div className="modal-actions"><button className="secondary-button" type="button" disabled={isSubmitting} onClick={onClose}>キャンセル</button>
+        <button className="primary-button" type="submit" disabled={isSubmitting}>{isSubmitting ? "追加中..." : "追加"}</button></div>
+    </form>
+  );
+
+  if (embedded) return <div className="add-event-content">{content}</div>;
+
   return (
     <div
       className="modal-backdrop"
@@ -130,107 +157,8 @@ function AddEventModal({ initialValues, onClose, onSubmit }) {
           </button>
         </div>
 
-        <form className="event-form" onSubmit={handleSubmit}>
-          <div className="modal-form-field">
-            <label htmlFor="event-title">予定タイトル</label>
-            <input
-              id="event-title"
-              type="text"
-              value={title}
-              placeholder="例：ミーティング"
-              autoFocus
-              required
-              onChange={(event) => setTitle(event.target.value)}
-            />
-          </div>
 
-          <div className="modal-date-fields">
-            <DateTimePicker
-              id="event-start-at"
-              label="開始日時"
-              value={eventStartAt}
-              onChange={handleEventStartChange}
-            />
-            <DateTimePicker
-              id="event-end-at"
-              label="終了日時"
-              value={eventEndAt}
-              min={eventStartAt}
-              onChange={setEventEndAt}
-            />
-          </div>
-
-          <EventPlaceField
-            id="event-location"
-            value={locationName}
-            selectedPlace={selectedPlace}
-            disabled={isSubmitting}
-            onChange={(nextLocationName) => {
-              setLocationName(nextLocationName);
-              setSelectedPlace(null);
-            }}
-            onPlaceSelect={(place) => {
-              setSelectedPlace(place);
-              if (place) {
-                setLocationName(place.name);
-              }
-            }}
-          />
-
-          <div className="modal-form-field">
-            <label htmlFor="event-arrival-buffer-minutes">
-              到着余裕時間（分） <span>任意</span>
-            </label>
-            <input
-              id="event-arrival-buffer-minutes"
-              type="number"
-              min="0"
-              step="1"
-              inputMode="numeric"
-              value={arrivalBufferMinutes}
-              placeholder="例：10"
-              onChange={(event) =>
-                setArrivalBufferMinutes(event.target.value)
-              }
-            />
-          </div>
-
-          <div className="modal-form-field">
-            <label htmlFor="event-description">
-              説明 <span>任意</span>
-            </label>
-            <textarea
-              id="event-description"
-              value={description}
-              placeholder="補足があれば入力してください"
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </div>
-
-          {errorMessage && (
-            <p className="modal-error-message" role="alert">
-              {errorMessage}
-            </p>
-          )}
-
-          <div className="modal-actions">
-            <button
-              className="secondary-button"
-              type="button"
-              disabled={isSubmitting}
-              onClick={onClose}
-            >
-              キャンセル
-            </button>
-            <button
-              className="primary-button"
-              type="submit"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "追加中..." : "追加"}
-            </button>
-          </div>
-        </form>
+        {content}
       </section>
     </div>
   );

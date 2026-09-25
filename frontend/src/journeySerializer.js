@@ -15,9 +15,7 @@ export function isJourneyDateTime(value) {
 }
 
 function placesConnect(firstPlace, secondPlace) {
-  if (firstPlace.place_id && secondPlace.place_id) {
-    return firstPlace.place_id === secondPlace.place_id;
-  }
+  if (firstPlace.place_id && secondPlace.place_id && firstPlace.place_id === secondPlace.place_id) return true;
   if (
     Number.isFinite(firstPlace.lat) &&
     Number.isFinite(firstPlace.lng) &&

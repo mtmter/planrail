@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { serializeJourney } from "./journeySerializer";
+import { journeyDocumentId } from "./journeyDocumentId";
 
 function userCollection(uid, collectionName) {
   return collection(db, "users", uid, collectionName);
@@ -125,12 +126,16 @@ export async function getJourney(uid, journeyId) {
   return snapshot.exists() ? dataWithId(snapshot) : null;
 }
 
-export async function saveJourney(uid, journey) {
-  const documentId = journey.event_id ? `event-${journey.event_id}` : null;
+export async function saveJourney(uid, journey, existingId = null) {
+  const documentId = journeyDocumentId(journey, existingId);
   const documentData = serializeJourney(journey);
   const reference = documentId
     ? userDocument(uid, "journeys", documentId)
     : userDocument(uid, "journeys", `standalone-${doc(userCollection(uid, "journeys")).id}`);
   await setDoc(reference, documentData);
   return { id: reference.id, ...documentData };
+}
+
+export async function deleteJourney(uid, journeyId) {
+  await deleteDoc(userDocument(uid, "journeys", journeyId));
 }

@@ -18,6 +18,7 @@ import {
   createEvent as createFirestoreEvent,
   createPreparation as createFirestorePreparation,
   deleteEvent as deleteFirestoreEvent,
+  deleteJourney as deleteFirestoreJourney,
   deletePreparation as deleteFirestorePreparation,
   getJourney as getFirestoreJourney,
   loadScheduleData,
@@ -175,8 +176,8 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
   const [preparationErrorMessage, setPreparationErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [addModalValues, setAddModalValues] = useState(null);
-  const [isAddChoiceOpen, setIsAddChoiceOpen] = useState(false);
-  const [isJourneyBuilderOpen, setIsJourneyBuilderOpen] = useState(false);
+  const [addChoiceValues, setAddChoiceValues] = useState(null);
+  const [editingJourney, setEditingJourney] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedJourney, setSelectedJourney] = useState(null);
   const [isReminderSettingsOpen, setIsReminderSettingsOpen] = useState(false);
@@ -285,11 +286,10 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
   }
 
   function handleAddButtonClick() {
-    setIsAddChoiceOpen(true);
+    setAddChoiceValues(getGlobalAddValues());
   }
 
-  function handleAddEventChoice() {
-    setIsAddChoiceOpen(false);
+  function getGlobalAddValues() {
     const today = new Date();
 
     if (activeView === "month") {
@@ -299,20 +299,18 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
       const targetDate = isCurrentMonth
         ? today
         : new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-      setAddModalValues(createInitialValues(targetDate));
-      return;
+      return createInitialValues(targetDate);
     }
 
     if (activeView === "day") {
-      setAddModalValues(createInitialValues(selectedDate));
-      return;
+      return createInitialValues(selectedDate);
     }
 
     const weekDates = getWeekDates(selectedDate);
     const targetDate = weekDates.some((date) => isSameDay(date, today))
       ? today
       : weekDates[0];
-    setAddModalValues(createInitialValues(targetDate));
+    return createInitialValues(targetDate);
   }
 
   function handleMonthDateClick(date) {
@@ -406,14 +404,22 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     );
   }
 
-  async function handleJourneySave(journey) {
-    const savedJourney = await saveFirestoreJourney(user.uid, journey);
+  async function handleJourneySave(journey, journeyId = null) {
+    const savedJourney = await saveFirestoreJourney(user.uid, journey, journeyId);
     setJourneys((current) => {
       const withoutExisting = current.filter((item) => item.id !== savedJourney.id);
       return [...withoutExisting, savedJourney];
     });
-    setIsJourneyBuilderOpen(false);
+    setAddChoiceValues(null);
+    setEditingJourney(null);
+    setSelectedJourney(null);
     return savedJourney;
+  }
+
+  async function handleJourneyDelete(journeyId) {
+    await deleteFirestoreJourney(user.uid, journeyId);
+    setJourneys((current) => current.filter((item) => item.id !== journeyId));
+    setSelectedJourney(null);
   }
 
   const handleJourneyLoad = useCallback(
@@ -632,20 +638,21 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
         />
       )}
 
-      {isAddChoiceOpen && (
+      {addChoiceValues && (
         <AddChoiceModal
-          onClose={() => setIsAddChoiceOpen(false)}
-          onChooseEvent={handleAddEventChoice}
-          onChooseJourney={() => {
-            setIsAddChoiceOpen(false);
-            setIsJourneyBuilderOpen(true);
-          }}
+          initialValues={addChoiceValues}
+          onClose={() => setAddChoiceValues(null)}
+          onCreateEvent={async (data) => { await handleCreateEvent(data); setAddChoiceValues(null); }}
+          onCreateJourney={handleJourneySave}
         />
       )}
 
-      {isJourneyBuilderOpen && (
+      {editingJourney && (
         <JourneyBuilderModal
-          onClose={() => setIsJourneyBuilderOpen(false)}
+          key={editingJourney.id}
+          journey={editingJourney}
+          event={events.find((event) => event.id === editingJourney.event_id) ?? null}
+          onClose={() => setEditingJourney(null)}
           onSave={handleJourneySave}
         />
       )}
@@ -684,6 +691,8 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
           journey={selectedJourney}
           event={events.find((event) => event.id === selectedJourney.event_id) ?? null}
           onClose={() => setSelectedJourney(null)}
+          onEdit={() => { setEditingJourney(selectedJourney); setSelectedJourney(null); }}
+          onDelete={() => handleJourneyDelete(selectedJourney.id)}
         />
       )}
 
