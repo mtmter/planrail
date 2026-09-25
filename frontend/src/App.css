@@ -1563,8 +1563,25 @@
   grid-template-columns: minmax(0, 1fr) minmax(64px, auto) minmax(0, 1fr);
   align-items: end;
   gap: 14px;
+  margin-bottom: 5px;
   overflow-wrap: anywhere;
   text-align: center;
+}
+
+.journey-result-heading h3 span:last-child {
+  grid-column: 3;
+}
+
+.journey-timeline .route-place-info {
+  gap: 12px;
+}
+
+.journey-timeline .route-place-times {
+  row-gap: 3px;
+}
+
+.journey-timeline .route-segment-details {
+  margin-block: 16px;
 }
 
 .journey-timeline-part {

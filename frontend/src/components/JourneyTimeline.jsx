@@ -39,7 +39,6 @@ export default function JourneyTimeline({ sections, onCandidateChange, candidate
       durationMinutes={minutesBetween(departureAt, arrivalAt)}
       heading={originName && destinationName ? <>
         <span>{originName}</span>
-        <span aria-hidden="true">→</span>
         <span>{destinationName}</span>
       </> : null}
       className="journey-result-heading"
