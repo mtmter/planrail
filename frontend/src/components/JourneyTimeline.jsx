@@ -1,6 +1,5 @@
-import RouteDetails, { RoutePlace } from "./RouteDetails";
+import RouteDetails, { RoutePlace, RouteTimeSummary } from "./RouteDetails";
 import { formatFare } from "../routeFormatters";
-import { formatTime } from "../dateUtils";
 
 function sectionDepartureAt(section) {
   return section?.kind === "ROUTE" ? section.route?.departure_at : section?.departure_at;
@@ -32,12 +31,13 @@ export default function JourneyTimeline({ sections, onCandidateChange, candidate
   const departureAt = sectionDepartureAt(sections[0]);
   const arrivalAt = sectionArrivalAt(sections[sections.length - 1]);
   return <div className="route-timeline journey-timeline" aria-label="移動予定の行程">
-    {departureAt && arrivalAt && <div className="route-result-heading journey-result-heading">
-      <div className="route-result-times journey-result-times" aria-label="移動予定全体の出発時刻と到着時刻">
-        <div><strong><time dateTime={departureAt}>{formatTime(departureAt)}</time></strong><span>出発</span></div>
-        <div><strong><time dateTime={arrivalAt}>{formatTime(arrivalAt)}</time></strong><span>到着</span></div>
-      </div>
-    </div>}
+    {departureAt && arrivalAt && <RouteTimeSummary
+      departureAt={departureAt}
+      arrivalAt={arrivalAt}
+      className="journey-result-heading"
+      timesClassName="journey-result-times"
+      ariaLabel="移動予定全体の出発時刻と到着時刻"
+    />}
     <RoutePlace name={sections[0].origin?.name} departureAt={departureAt} origin />
     {sections.map((section, index) => {
       const start = sectionDepartureAt(section);

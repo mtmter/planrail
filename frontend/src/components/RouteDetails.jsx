@@ -94,6 +94,43 @@ export function RoutePlace({ name, arrivalAt, departureAt, origin = false }) {
   </div>;
 }
 
+export function RouteTimeSummary({
+  departureAt,
+  arrivalAt,
+  durationMinutes,
+  heading,
+  className = "",
+  timesClassName = "",
+  ariaLabel = "経路全体の出発時刻、到着時刻、所要時間",
+}) {
+  const departureTime = getFormattedTime(departureAt);
+  const arrivalTime = getFormattedTime(arrivalAt);
+  const hasSummary = departureTime || arrivalTime || hasValue(durationMinutes);
+  if (!heading && !hasSummary) return null;
+
+  return (
+    <div className={`route-result-heading${className ? ` ${className}` : ""}`}>
+      {heading && <h3>{heading}</h3>}
+      {hasSummary && (
+        <div
+          className={`route-result-times${timesClassName ? ` ${timesClassName}` : ""}`}
+          aria-label={ariaLabel}
+        >
+          {departureTime && <div>
+            <strong><time dateTime={departureAt}>{departureTime}</time></strong>
+            <span>出発</span>
+          </div>}
+          {hasValue(durationMinutes) && <p>{durationMinutes}分</p>}
+          {arrivalTime && <div>
+            <strong><time dateTime={arrivalAt}>{arrivalTime}</time></strong>
+            <span>到着</span>
+          </div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RouteDetails({ heading, route = {}, embedded = false, nextDepartureAt = null }) {
   const segments = Array.isArray(route?.segments)
     ? route.segments.filter(
@@ -106,11 +143,6 @@ function RouteDetails({ heading, route = {}, embedded = false, nextDepartureAt =
   const destination = hasValue(route?.destination)
     ? route.destination
     : lastSegment?.to;
-  const departureTime = getFormattedTime(route?.departure_at);
-  const arrivalTime = getFormattedTime(route?.arrival_at);
-  const hasSummary =
-    departureTime || arrivalTime || hasValue(route?.duration_minutes);
-
   const timeline = <>
         {!embedded && <RoutePlace name={origin} departureAt={route.departure_at || firstSegment?.departure_at} origin />}
 
@@ -157,37 +189,12 @@ function RouteDetails({ heading, route = {}, embedded = false, nextDepartureAt =
 
   return (
     <section className="route-details" aria-label="経路詳細">
-      {heading || hasSummary ? (
-        <div className="route-result-heading">
-          {heading && <h3>{heading}</h3>}
-          {hasSummary && (
-            <div
-              className="route-result-times"
-              aria-label="経路全体の出発時刻、到着時刻、所要時間"
-            >
-              {departureTime && (
-                <div>
-                  <strong>
-                    <time dateTime={route.departure_at}>{departureTime}</time>
-                  </strong>
-                  <span>出発</span>
-                </div>
-              )}
-              {hasValue(route?.duration_minutes) && (
-                <p>{route.duration_minutes}分</p>
-              )}
-              {arrivalTime && (
-                <div>
-                  <strong>
-                    <time dateTime={route.arrival_at}>{arrivalTime}</time>
-                  </strong>
-                  <span>到着</span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      ) : null}
+      <RouteTimeSummary
+        heading={heading}
+        departureAt={route?.departure_at}
+        arrivalAt={route?.arrival_at}
+        durationMinutes={route?.duration_minutes}
+      />
 
       <div className="route-timeline">{timeline}</div>
     </section>
