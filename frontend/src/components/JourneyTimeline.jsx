@@ -1,5 +1,14 @@
-import RouteDetails from "./RouteDetails";
+import RouteDetails, { RoutePlace } from "./RouteDetails";
 import { formatFare } from "../routeFormatters";
+import { formatTime } from "../dateUtils";
+
+function sectionDepartureAt(section) {
+  return section?.kind === "ROUTE" ? section.route?.departure_at : section?.departure_at;
+}
+
+function sectionArrivalAt(section) {
+  return section?.kind === "ROUTE" ? section.route?.arrival_at : section?.arrival_at;
+}
 
 function minutesBetween(first, second) {
   if (!first || !second) return 0;
@@ -20,17 +29,26 @@ function candidateMetrics(route) {
 
 export default function JourneyTimeline({ sections, onCandidateChange, candidateDisabled = false }) {
   if (!sections?.length) return null;
+  const departureAt = sectionDepartureAt(sections[0]);
+  const arrivalAt = sectionArrivalAt(sections[sections.length - 1]);
   return <div className="route-timeline journey-timeline" aria-label="移動予定の行程">
-    <div className="route-place route-origin"><span aria-hidden="true" /><strong>{sections[0].origin?.name}</strong></div>
+    {departureAt && arrivalAt && <div className="route-result-heading journey-result-heading">
+      <div className="route-result-times journey-result-times" aria-label="移動予定全体の出発時刻と到着時刻">
+        <div><strong><time dateTime={departureAt}>{formatTime(departureAt)}</time></strong><span>出発</span></div>
+        <div><strong><time dateTime={arrivalAt}>{formatTime(arrivalAt)}</time></strong><span>到着</span></div>
+      </div>
+    </div>}
+    <RoutePlace name={sections[0].origin?.name} departureAt={departureAt} origin />
     {sections.map((section, index) => {
-      const start = section.kind === "ROUTE" ? section.route?.departure_at : section.departure_at;
+      const start = sectionDepartureAt(section);
       const previous = sections[index - 1];
-      const previousArrival = previous?.kind === "ROUTE" ? previous.route?.arrival_at : previous?.arrival_at;
+      const previousArrival = sectionArrivalAt(previous);
+      const nextDepartureAt = sectionDepartureAt(sections[index + 1]);
       const wait = minutesBetween(previousArrival, start);
       return <div className="journey-timeline-part" key={section.key || `${section.kind}-${index}`}>
         {wait > 0 && <div className="route-segment journey-wait"><span className="route-segment-line" aria-hidden="true" /><span>待機 {wait}分</span></div>}
         {section.kind === "ROUTE" ? section.route ? <>
-          <RouteDetails route={section.route} embedded />
+          <RouteDetails route={section.route} embedded nextDepartureAt={nextDepartureAt} />
           {candidateMetrics(section.route) && <p className="journey-route-metrics">{candidateMetrics(section.route)}</p>}
           {(section.warnings || []).map((warning, at) => <p className="route-search-guidance" key={at}>{warning}</p>)}
           {onCandidateChange && section.candidates?.length > 0 && <details className="journey-candidate-picker">
@@ -50,7 +68,7 @@ export default function JourneyTimeline({ sections, onCandidateChange, candidate
             <div className="route-segment-details"><strong>🔒 {section.label || "固定移動"}</strong>
               <span>{section.origin?.name} → {section.destination?.name}</span>
               <span>{section.departure_at?.replace("T", " ")} → {section.arrival_at?.replace("T", " ")}</span></div></div>
-          <div className="route-place"><span aria-hidden="true" /><strong>{section.destination?.name}</strong></div>
+          <RoutePlace name={section.destination?.name} arrivalAt={section.arrival_at} departureAt={nextDepartureAt} />
         </div>}
       </div>;
     })}

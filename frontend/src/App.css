@@ -1552,6 +1552,14 @@
   display: grid;
 }
 
+.journey-result-heading {
+  margin-bottom: 12px;
+}
+
+.journey-result-times {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .journey-timeline-part {
   display: contents;
 }
@@ -1924,6 +1932,25 @@
   border: 3px solid #2d5dcc;
   border-radius: 50%;
   background: #ffffff;
+}
+
+.route-place-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.route-place-times {
+  flex: 0 0 60px;
+  display: grid;
+  color: #536174;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.route-place-times > span {
+  white-space: nowrap;
 }
 
 .route-place strong {
