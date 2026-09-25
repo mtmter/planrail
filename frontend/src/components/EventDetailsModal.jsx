@@ -3,7 +3,7 @@ import { WEEKDAY_NAMES, parseDateTime } from "../dateUtils";
 import DateTimePicker from "./DateTimePicker";
 import EventPlaceField from "./EventPlaceField";
 import PreparationChecklist from "./PreparationChecklist";
-import JourneyBuilderModal from "./JourneyBuilderModal";
+import { JourneyBuilderContent } from "./JourneyBuilderModal";
 import JourneyDetails from "./JourneyDetails";
 import { getEventArrivalDeadline } from "../eventJourneyTarget";
 
@@ -311,9 +311,10 @@ function EventDetailsModal({
         </div>
 
         {mode === "route" ? (
-          <JourneyBuilderModal
+          <JourneyBuilderContent
             event={event}
-            onClose={() => setMode("details")}
+            journey={journey}
+            onCancel={() => setMode("details")}
             onSave={async (nextJourney) => {
               const savedJourney = await onJourneySave(nextJourney);
               setJourney(savedJourney);

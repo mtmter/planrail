@@ -1,3 +1,4 @@
+import { useState } from "react";
 import JourneyDetails from "./JourneyDetails";
 import { getEventArrivalDeadline } from "../eventJourneyTarget";
 import { journeyDisplayName } from "../journeySerializer";
@@ -31,7 +32,10 @@ function eventPlace(event) {
   };
 }
 
-function JourneyDetailsModal({ journey, event = null, onClose, onEdit }) {
+function JourneyDetailsModal({ journey, event = null, onClose, onEdit, onDelete }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
   const needsReplan = Boolean(
     event &&
       (!placesMatch(journey.target?.destination, eventPlace(event)) ||
@@ -43,10 +47,24 @@ function JourneyDetailsModal({ journey, event = null, onClose, onEdit }) {
         <div className="modal-header"><div><p>移動予定</p><h2>{journeyDisplayName(journey, event)}</h2></div><button className="modal-close-button" type="button" onClick={onClose}>×</button></div>
         <JourneyDetails
           journey={journey}
-          onPlan={onEdit}
+          onPlan={null}
           isSearchDisabled={Boolean(event && (!Number.isFinite(event.destination_lat) || !Number.isFinite(event.destination_lng)))}
           replanWarning={needsReplan ? "予定の目的地または到着期限が変更されています。移動を再計画してください。" : ""}
         />
+        {error && <p className="modal-error-message" role="alert">{error}</p>}
+        <div className="modal-actions">
+          {onDelete && <button className="danger-secondary-button" type="button" disabled={deleting} onClick={() => setConfirmDelete(true)}>削除</button>}
+          {onEdit && <button className="primary-button" type="button" disabled={deleting || Boolean(event && (!Number.isFinite(event.destination_lat) || !Number.isFinite(event.destination_lng)))} onClick={onEdit}>編集</button>}
+        </div>
+        {confirmDelete && <div className="journey-delete-confirm" role="group" aria-label="移動予定の削除確認">
+          <p>この移動予定を削除しますか？</p>
+          <div className="modal-actions"><button className="secondary-button" type="button" disabled={deleting} onClick={() => setConfirmDelete(false)}>キャンセル</button>
+            <button className="danger-button" type="button" disabled={deleting} onClick={async () => {
+              setDeleting(true);
+              try { await onDelete(); }
+              catch (deleteError) { setError(deleteError.message); setDeleting(false); }
+            }}>削除する</button></div>
+        </div>}
       </section>
     </div>
   );
