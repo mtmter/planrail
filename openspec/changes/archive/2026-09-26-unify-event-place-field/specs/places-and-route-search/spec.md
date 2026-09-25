@@ -17,6 +17,16 @@
 - **WHEN** ユーザーが「場所」に文字列だけを入力して予定を保存する
 - **THEN** システムは予定を保存し、文字列を場所名として保持し、Place ID・座標・typeは未設定とする
 
+#### Scenario: 候補を選択せず入力する
+
+- **WHEN** ユーザーが文字列だけを予定の場所または経路検索の出発地へ入力する
+- **THEN** システムは予定の場所を保存でき、座標等が不足したままAPIへ到達した経路検索リクエストにはHTTP 400を返す
+
+#### Scenario: 候補を選択せず経路検索の出発地を入力する
+
+- **WHEN** ユーザーが座標のない文字列だけを出発地として経路検索する
+- **THEN** APIはGoogle Placesの候補を選択するよう促す入力エラーとしてHTTP 400を返す
+
 #### Scenario: Places候補を選択する
 
 - **WHEN** ユーザーがPlaces候補を選択する
@@ -32,6 +42,16 @@
 - **WHEN** 予定に `destination_lat` または `destination_lng` のいずれかがない
 - **THEN** システムは経路検索ボタンをdisabledにし、候補選択を促す案内を表示する
 
+#### Scenario: 予定の目的地座標が不足している
+
+- **WHEN** 予定に `destination_lat` または `destination_lng` のいずれかがない
+- **THEN** システムは経路検索ボタンをdisabledにし、ボタン付近に「経路検索するには、場所を候補から選択してください」という趣旨の案内を表示する
+
+#### Scenario: 予定の目的地座標が揃っている
+
+- **WHEN** 予定に `destination_lat` と `destination_lng` の両方がある
+- **THEN** システムはAutocompleteの利用有無にかかわらず経路検索ボタンを有効にする
+
 #### Scenario: 予定の場所候補が選択済みである
 
 - **WHEN** 予定に `destination_lat` と `destination_lng` の両方がある
@@ -41,3 +61,8 @@
 
 - **WHEN** ユーザーが選択済みPlaces候補を含む予定を保存する
 - **THEN** システムは候補名を `location_name`、住所を `destination`、Place IDを `destination_place_id`、座標を `destination_lat` / `destination_lng`、typeを `destination_place_types` に保存する
+
+#### Scenario: 予定へ候補を保存する
+
+- **WHEN** 選択したPlaces候補を含む予定を保存する
+- **THEN** システムは名前を `location_name`、住所を `destination`、Place IDを `destination_place_id`、座標を `destination_lat` と `destination_lng`、候補の `types` を `destination_place_types` に保存する

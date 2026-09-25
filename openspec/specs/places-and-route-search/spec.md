@@ -8,17 +8,20 @@
 
 ### Requirement: 場所候補と文字入力を提供する
 
-予定の追加・編集時の場所名と、経路検索時の出発地にはGoogle Placesの候補入力を提供しなければならない（MUST）。Google Maps APIキーがない場合または候補を読み込めない場合は、通常の文字入力へフォールバックしなければならない（MUST）。文字入力だけの予定はPlace IDや座標がなくても保存できる。予定詳細の経路検索ボタンは、Autocompleteを使用したかどうかではなく、予定に `destination_lat` と `destination_lng` の両方がある場合に限り有効にしなければならない（MUST）。いずれかがない場合はボタンをdisabledにし、「経路検索するには、場所を候補から選択してください」という趣旨の案内をボタン付近に表示しなければならない（MUST）。Transit経路検索にはplannerが受け付ける駅/停留所endpointまたは座標が必要である。Places候補を選択したとき、システムは候補の `types` を取得し、予定の目的地では `destination_place_types` として座標等とともに保存しなければならない（MUST）。公共交通地点の識別にはGoogle Places API (New) のtype値を使い、表示名から推測してはならない（MUST NOT）。
+予定の追加・編集画面はユーザー向け場所入力を「場所」と表示する1項目だけ提供しなければならない（MUST）。この項目ではGoogle Places候補を選択でき、候補を選択せずに自由入力だけで予定を保存できなければならない（MUST）。Google Maps APIキーがない場合または候補を読み込めない場合は通常の文字入力へフォールバックしなければならない（MUST）。
 
-#### Scenario: Places候補を選択する
+候補を選択した場合は候補の表示名、住所、Place ID、緯度、経度、および `types` を取得し、既存の予定フィールド `location_name`、`destination`、`destination_place_id`、`destination_lat`、`destination_lng`、`destination_place_types` に保存しなければならない（MUST）。自由入力だけの場合は文字列を `location_name` に保存し、Place ID、座標、typeを設定済み地点情報として保存してはならない（MUST NOT）。
 
-- **WHEN** ユーザーがPlaces候補を選択する
-- **THEN** システムは場所名、住所、Place ID、緯度、経度、および候補が返す `types` を取得する
+候補選択後は選択した場所名と、利用可能なら住所を選択済みであると分かる状態で表示しなければならない（MUST）。候補選択中に場所名を直接編集できるようにしてはならず（MUST NOT）、ユーザーが変更操作を選んだ場合は選択を解除してAutocomplete入力へ戻さなければならない（MUST）。新しい候補が選択されるまでは以前のPlace ID、座標、typeを保存してはならない（MUST NOT）。
+
+予定詳細の経路検索ボタンは予定に `destination_lat` と `destination_lng` の両方がある場合に限り有効にしなければならない（MUST）。不足している場合はボタンをdisabledにし、「経路検索するには、場所を候補から選択してください」という趣旨の案内を表示しなければならない（MUST）。経路検索destinationは予定の場所として選択した地点情報を使わなければならない（MUST）。Transit経路検索にはplannerが受け付ける駅/停留所endpointまたは座標が必要であり、座標のない自由入力だけでは検索できない。
+
+公共交通地点の識別にはGoogle Places API (New) のtype値を使い、表示名から推測してはならない（MUST NOT）。
 
 #### Scenario: 候補を選択せず予定の場所を入力する
 
-- **WHEN** ユーザーが文字列だけの場所を予定へ入力する
-- **THEN** システムはPlace IDや座標がなくても予定を保存できる
+- **WHEN** ユーザーが「場所」に文字列だけを入力して予定を保存する
+- **THEN** システムは予定を保存し、文字列を場所名として保持し、Place ID・座標・typeは未設定とする
 
 #### Scenario: 候補を選択せず入力する
 
@@ -30,6 +33,21 @@
 - **WHEN** ユーザーが座標のない文字列だけを出発地として経路検索する
 - **THEN** APIはGoogle Placesの候補を選択するよう促す入力エラーとしてHTTP 400を返す
 
+#### Scenario: Places候補を選択する
+
+- **WHEN** ユーザーがPlaces候補を選択する
+- **THEN** システムは選択済みの場所名と利用可能な住所を明示し、名前、住所、Place ID、緯度、経度、および候補の `types` を保存する
+
+#### Scenario: 選択済み地点を変更する
+
+- **WHEN** ユーザーが選択済み場所の変更操作を選ぶ
+- **THEN** システムはAutocomplete入力へ戻り、別の候補を選択するまで以前の地点情報を保存対象にしない
+
+#### Scenario: 予定の場所候補が未選択である
+
+- **WHEN** 予定に `destination_lat` または `destination_lng` のいずれかがない
+- **THEN** システムは経路検索ボタンをdisabledにし、候補選択を促す案内を表示する
+
 #### Scenario: 予定の目的地座標が不足している
 
 - **WHEN** 予定に `destination_lat` または `destination_lng` のいずれかがない
@@ -39,6 +57,16 @@
 
 - **WHEN** 予定に `destination_lat` と `destination_lng` の両方がある
 - **THEN** システムはAutocompleteの利用有無にかかわらず経路検索ボタンを有効にする
+
+#### Scenario: 予定の場所候補が選択済みである
+
+- **WHEN** 予定に `destination_lat` と `destination_lng` の両方がある
+- **THEN** システムは経路検索を有効にし、予定に保存された場所の座標とtypeをdestinationとして検索する
+
+#### Scenario: Place候補を含む予定を保存する
+
+- **WHEN** ユーザーが選択済みPlaces候補を含む予定を保存する
+- **THEN** システムは候補名を `location_name`、住所を `destination`、Place IDを `destination_place_id`、座標を `destination_lat` / `destination_lng`、typeを `destination_place_types` に保存する
 
 #### Scenario: 予定へ候補を保存する
 
@@ -61,57 +89,89 @@
 
 ### Requirement: 経路検索リクエストを受け付ける
 
-システムは `POST /api/route-search` で出発地情報と対象予定をJSONとして受け付けなければならない（MUST）。選択済み出発地のtypeは任意の `origin_place_types`、予定に保存された目的地のtypeは任意の `event.destination_place_types` として伝搬する。Transit APIへは駅/停留所endpointまたは `geo:<lat>,<lon>` 形式の地点を渡す。座標のない自由入力文字列だけではTransit検索を行わず、Places候補の選択を促すHTTP 400を返す。
+システムは `POST /api/route-search` でJourneyのROUTE section向けに出発地・目的地のPlacePointと `time_constraint: {type: arrival | departure, at: YYYY-MM-DDTHH:mm}` を受け付けなければならない（MUST）。両端には有効な座標を要求する。名前のみの場合は検索せずPlaces候補の選択を促すHTTP 400を返す。PlacePointのtypesは既存の保守的な駅/停留所endpoint解決へ伝搬する。新規フロントエンドは旧Event形式を送信せず、既存クライアント向けの受理互換があってもJourneyの保存契約には影響させてはならない（MUST NOT）。
+
+座標と表示名を持つ公共交通typeの地点だけにTransit reverse lookupを試し、300m以内で正規化した表示名が一致するstation/stop endpointがあれば使い、それ以外とreverse lookup失敗時は `geo:<lat>,<lon>` を使わなければならない（MUST）。公共交通typeがない地点やtype不明の地点は名前から推測せずgeo endpointを使う。
+
+#### Scenario: Event-linked Journeyの区間を検索する
+
+- **WHEN** Eventから開いたBuilderがEvent由来のtargetに基づくROUTE section検索を送る
+- **THEN** APIはStandalone Journeyと同じ地点・時間制約形式で検索する
+
+#### Scenario: JourneyのROUTE sectionを検索する
+
+- **WHEN** フロントエンドが座標を持つ両端PlacePointと有効なtime_constraintを送る
+- **THEN** APIは地点を解決し、指定された到着または出発制約で経路を検索する
+
+#### Scenario: Journeyの地点が名前のみである
+
+- **WHEN** ROUTE sectionの出発地または目的地に有効な座標がない
+- **THEN** APIは文字列から地点を推測せずHTTP 400を返す
+
+#### Scenario: Journeyの時間制約が不正である
+
+- **WHEN** time_constraintのtypeが未知、またはatが有効な日時でない
+- **THEN** APIはProviderを呼ばず入力エラーを返す
+
+#### Scenario: 公共交通地点の候補を選択する
+
+- **WHEN** PlacePointのtypesに公共交通typeがあり、近傍のstation/stop候補と表示名が一致する
+- **THEN** システムは既存の保守的なTransit endpoint解決を使う
+
+#### Scenario: 一般地点またはreverse失敗
+
+- **WHEN** PlacePointに公共交通typeがない、またはreverse lookupが失敗する
+- **THEN** システムは保存済み座標からgeo endpointを作り検索を続ける
 
 #### Scenario: 出発地と目的地の両方に座標がある
 
-- **WHEN** 出発地と目的地の両方に緯度と経度がある
-- **THEN** システムはそれぞれのGoogle Places表示名とtype情報を保持してTransit用endpointを解決し、表示名を経路候補のラベルとして使う
+- **WHEN** 出発地と目的地の両方に有効な座標がある
+- **THEN** システムはそれぞれの座標を経路検索へ渡す
 
 #### Scenario: 地点を解決する
 
-- **WHEN** 出発地または目的地に座標があり、Places候補の `types` に `train_station`、`subway_station`、`transit_station`、`bus_station`、`bus_stop`、`light_rail_station`、`transit_stop` のいずれかが含まれる
-- **THEN** システムはTransit `/api/v1/places/reverse` を実行して既存のstation/stop endpoint解決を試み、一致しない場合は `geo:<lat>,<lon>` を使う
+- **WHEN** 経路検索の地点が座標を持つ
+- **THEN** システムは既存の地点解決処理で検索用endpointを決める
 
 #### Scenario: 一般POIを解決する
 
-- **WHEN** Google Places候補に既知の公共交通typeが含まれない
-- **THEN** システムは `/api/v1/places/reverse` を呼ばず、保存済み座標から `geo:<lat>,<lon>` endpointを作る
+- **WHEN** 地点が公共交通typeを持たない一般POIである
+- **THEN** システムは名前から駅を推測せずgeo endpointを使う
 
 #### Scenario: 既存データに地点typeがない
 
-- **WHEN** 出発地または目的地に座標があるが、対応するPlaces type情報がない
-- **THEN** システムは地点名から駅・停留所と推測せず、reverse lookupを呼ばずに `geo:<lat>,<lon>` endpointを使う
+- **WHEN** 保存済み地点にtypesがない
+- **THEN** システムは保守的な駅endpoint推測を行わずgeo endpointを使う
 
 #### Scenario: 駅または停留所名が近傍候補と一致する
 
-- **WHEN** 座標と表示名を持つ地点についてTransit `/api/v1/places/reverse` が300m以内のstation/stop候補を返し、正規化後の名前が一致する
-- **THEN** システムは一致候補のうち最も近い候補のTransit planner endpointを経路検索に使う
+- **WHEN** 公共交通地点の表示名が近傍候補と一致する
+- **THEN** システムは一致した駅または停留所endpointを使う
 
 #### Scenario: 駅または停留所名が一致しない
 
-- **WHEN** 近傍候補がstation/stopではない、Transit endpointを持たない、または表示名と一致しない
-- **THEN** システムは駅/停留所へ吸着せず `geo:<lat>,<lon>` を経路検索に使う
+- **WHEN** 公共交通地点の表示名が近傍候補と一致しない
+- **THEN** システムはgeo endpointへフォールバックする
 
 #### Scenario: reverse検索に失敗する
 
-- **WHEN** Transit `/api/v1/places/reverse` が通信、HTTP、JSONまたはレスポンス形式のエラーになる
-- **THEN** システムはその地点の `geo:<lat>,<lon>` を使って経路検索を続ける
+- **WHEN** reverse lookupが失敗する
+- **THEN** システムはgeo endpointで検索を継続する
 
 #### Scenario: 地点を検索用endpointへ解決できない
 
-- **WHEN** 出発地または目的地に座標がなく、Transit plannerが受け付けるendpointもない
-- **THEN** APIはGoogle Places候補を選択するよう促す入力エラーとしてHTTP 400を返す
+- **WHEN** 出発地または目的地に有効な座標がない
+- **THEN** APIはHTTP 400を返す
 
 #### Scenario: 出発地または目的地がない
 
-- **WHEN** 利用可能な出発地または目的地の情報がない
+- **WHEN** 出発地または目的地の情報が空である
 - **THEN** APIはHTTP 400を返す
 
 #### Scenario: 予定開始日時が不正である
 
-- **WHEN** `event.start_at` が `YYYY-MM-DDTHH:mm` として解析できない
-- **THEN** APIはHTTP 400を返す
+- **WHEN** 時間制約の日時が不正である
+- **THEN** APIはProviderを呼ばずHTTP 400を返す
 
 ### Requirement: Transit APIの呼び出しに用途別timeoutを適用する
 
@@ -160,25 +220,6 @@
 
 - **WHEN** サーバーが成功または失敗したroute searchの段階別latencyを記録する
 - **THEN** ログに地点名、住所、緯度・経度、Place ID、またはリクエスト本文を含めない
-
-### Requirement: 到着希望日時を計算する
-
-バックエンドは予定開始日時から到着余裕時間を減算してTransit APIへ渡す到着希望日時を計算しなければならない（MUST）。到着余裕時間が未設定の場合は0分として扱わなければならない（MUST）。日時は日本時間の `date=YYYYMMDD` と `time=HH:MM` に分け、`/api/v1/guidance/plan` の `type=arrival` で問い合わせなければならない（MUST）。問い合わせでは `numItineraries=3`、`strategy=balanced`、`live=false`、`tracking=none` を指定する。
-
-#### Scenario: 到着余裕時間が設定されている
-
-- **WHEN** 予定開始が10:30で到着余裕時間が10分である
-- **THEN** バックエンドは10:20を到着希望日時として検索する
-
-#### Scenario: 1件のbalanced itineraryを検索する
-
-- **WHEN** バックエンドは3件を要求し、Transit APIが有効なoptionを1件だけ返す
-- **THEN** システムはその1件だけを候補として返す
-
-#### Scenario: 最大3件のbalanced itineraryを検索する
-
-- **WHEN** バックエンドがTransit APIへ経路検索を送る
-- **THEN** リクエストは `numItineraries=3`、`strategy=balanced`、`live=false`、`tracking=none` を指定する
 
 ### Requirement: Route Providerを選択する
 
@@ -453,34 +494,82 @@ access/egress秒数が負、数値以外、NaNまたは無限大相当である�
 
 ### Requirement: 経路結果を登録前に表示する
 
-フロントエンドは最大3件の候補を比較・選択できるようにし、初期選択候補の詳細を登録前に表示しなければならない（MUST）。summary cardには出発時刻、到着時刻、所要時間、乗換回数、徒歩時間、運賃を表示し、推奨候補にはおすすめ表示を付けなければならない（MUST）。未取得の比較値は0と誤認させず、値がないことを表示しなければならない（MUST）。運賃はIC運賃、なければticket運賃の順で表示し、どちらもない場合は運賃情報がないことを示す。候補の詳細には既存の縦型Route timelineを使用し、coverage warningがあれば同じ検索結果に表示する。
+フロントエンドはJourney sectionの検索結果で最大3件の候補を比較・選択できるようにし、推奨候補を初期選択し、選択中候補の既存Routeタイムラインを表示しなければならない（MUST）。候補カードには出発・到着、所要時間、利用可能な乗換・徒歩・運賃を表示し、未取得値を0と見せてはならない（MUST NOT）。warningは検索結果で表示し、保存データへ含めない。
 
-#### Scenario: 検索に成功する
+#### Scenario: Journey sectionの候補を選択する
 
-- **WHEN** 経路検索APIが1件以上3件以下のRouteCandidateを返す
-- **THEN** システムは候補summary cardと選択中候補1件の縦型route timeline、「この経路を登録」操作を表示する
-
-#### Scenario: 初期候補を選択する
-
-- **WHEN** 候補一覧を表示する
-- **THEN** システムは`recommended_candidate_id`の候補を初期選択する
-
-#### Scenario: 推奨表示の候補をユーザーが選び直す
-
-- **WHEN** ユーザーが別のsummary cardを選択する
-- **THEN** システムはその候補をactiveにし、その候補だけのroute timelineと登録操作を表示する
-
-#### Scenario: 選択した経路を登録する
-
-- **WHEN** ユーザーがactiveな候補に対して「この経路を登録」を選ぶ
-- **THEN** フロントエンドはactiveな候補1件だけを登録処理へ渡す
-
-#### Scenario: Coverage warningがある
-
-- **WHEN** 検索結果にwarningがある
-- **THEN** システムは候補詳細とともにPlanRailの日本語warningを表示する
+- **WHEN** ユーザーが1件以上3件以下の候補から1件を選ぶ
+- **THEN** システムはその候補の詳細を表示し、選んだ1件を当該sectionのdraftへ確定する
 
 #### Scenario: 条件を変更する
 
-- **WHEN** ユーザーが検索条件の変更を選択する
-- **THEN** システムは検索結果と選択中候補をクリアして出発地入力へ戻る
+- **WHEN** ユーザーが当該sectionの検索条件を変更する
+- **THEN** システムはその区間の検索結果と選択候補をクリアし、他の確定区間を維持する
+
+#### Scenario: 検索に成功する
+
+- **WHEN** 経路検索APIが有効な候補を返す
+- **THEN** システムは候補をBuilder内に表示する
+
+#### Scenario: 初期候補を選択する
+
+- **WHEN** 検索直後に候補が返る
+- **THEN** システムは推奨候補または先頭候補を初期選択する
+
+#### Scenario: 推奨表示の候補をユーザーが選び直す
+
+- **WHEN** ユーザーが推奨候補と異なる候補を選ぶ
+- **THEN** システムは選択した候補を当該sectionへ確定する
+
+#### Scenario: 選択した経路を登録する
+
+- **WHEN** ユーザーが全区間を確定してJourney保存を選ぶ
+- **THEN** システムは選択した経路だけをJourneyへ保存する
+
+#### Scenario: Coverage warningがある
+
+- **WHEN** 検索結果にcoverage warningがある
+- **THEN** システムは画面にwarningを表示し保存データへ含めない
+
+### Requirement: Journey sectionの時間制約を適用する
+
+システムはJourney Builderが指定した `time_constraint` の日時と種別を用いなければならない（MUST）。Event-linkedの到着期限はフロントエンドが `event.start_at - (arrival_buffer_minutes ?? 0)` で求め、Standaloneと同じ区間検索契約に渡す。Transit APIへは日本時間の `date=YYYYMMDD` と `time=HH:MM`、到着制約なら `type=arrival`、出発制約なら `type=departure` を渡す。いずれも `numItineraries=3`、`strategy=balanced`、`live=false`、`tracking=none` とする。
+
+#### Scenario: Event-linkedの期限を検索に使う
+
+- **WHEN** Event-linked Journeyがtargetへ向かうROUTEを検索する
+- **THEN** システムはEventから計算した到着期限をarrival制約として渡す
+
+#### Scenario: FIXED後から出発する
+
+- **WHEN** ROUTE sectionがFIXED到着後の出発を必要とする
+- **THEN** システムはFIXED到着時刻をTransitのdeparture検索へ渡す
+
+#### Scenario: 最大3件の候補を要求する
+
+- **WHEN** Journeyの経路検索をTransitへ送る
+- **THEN** システムはbalanced itineraryを最大3件要求し、返された有効候補の順序を維持する
+
+### Requirement: Journey sectionの上下限を検証する
+
+システムはJourneyの各ROUTE区間で、先頭から最初のFIXEDまではそのFIXED出発時刻以前の到着、FIXED間では前FIXED到着時刻以降の出発と次FIXED出発時刻以前の到着、最後のFIXEDからtargetまではFIXED到着時刻以降の出発とtarget到着期限以前の到着、FIXEDなしではtarget到着期限以前の到着を条件にしなければならない（MUST）。複数制約のときはAPIの出発制約で得た候補の実際の発着時刻を上下限で検証し、満たさない候補を選択可能にしてはならない（MUST NOT）。
+
+#### Scenario: 最初のFIXEDへ向かう
+
+- **WHEN** Journeyの開始地点から最初のFIXED乗車地点へのROUTEを検索する
+- **THEN** システムはFIXED出発時刻を到着制約にする
+
+#### Scenario: 二つのFIXEDをつなぐ
+
+- **WHEN** 前FIXEDと次FIXEDの間のROUTEを検索する
+- **THEN** システムは前FIXED到着時刻を出発制約にし、次FIXED出発時刻までに到着する候補だけを選択可能にする
+
+#### Scenario: 最後のFIXEDからtargetへ向かう
+
+- **WHEN** 最後のFIXEDからtargetへのROUTEを検索する
+- **THEN** システムはFIXED到着時刻を出発制約にし、target到着期限までに到着する候補だけを選択可能にする
+
+#### Scenario: 有効候補がない
+
+- **WHEN** Providerが返した最大3候補のうち上下限を満たすものがない
+- **THEN** システムは区間を未確定として理由を表示し、追加候補の取得や行程全体の自動最適化を行わない

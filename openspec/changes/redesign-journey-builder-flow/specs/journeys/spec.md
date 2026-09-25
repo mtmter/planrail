@@ -14,6 +14,16 @@
 - **WHEN** Eventの目的地に有効な緯度または経度がない
 - **THEN** システムは移動計画を無効にし、Places候補の選択を案内する
 
+#### Scenario: Event-linkedで固定移動を先に追加する
+
+- **WHEN** ユーザーがEventからBuilderを開き、経路検索より先に固定移動を入力する
+- **THEN** システムは固定移動を入力条件へ追加し、その地点と時刻から必要な公共交通区間を導出する
+
+#### Scenario: Standalone Journeyを作る
+
+- **WHEN** ユーザーがEventを選ばず移動予定の追加を開始する
+- **THEN** システムは `event_id: null` のBuilderを開き、出発地・目的地・到着期限を求める
+
 #### Scenario: Standaloneを作る
 
 - **WHEN** ユーザーがEventを選ばず移動予定を追加する
@@ -31,12 +41,17 @@
 
 ### Requirement: 固定移動をJourney内に記録する
 
-FIXED sectionは乗車地点、出発日時、降車地点、到着日時、任意の名称を保持しなければならない（MUST）。名称はnullを許容し、固定移動用の独立collectionを作ってはならない（MUST NOT）。Builderは固定移動を検索前の入力条件として追加・編集・削除でき、複数件を時刻順に扱わなければならない（MUST）。ユーザーにsectionの挿入位置を指定させてはならない（MUST NOT）。
+FIXED sectionは乗車地点、出発日時、降車地点、到着日時、任意の名称を保持しなければならない（MUST）。名称はnullを許容し、固定移動用の独立collectionを作ってはならない（MUST NOT）。Builderは固定移動を検索前の入力条件として追加・編集・削除でき、複数件を時刻順に扱わなければならない（MUST）。通常の追加操作は入力画面の「固定移動を追加」1種類とし、公共交通区間やgapごとの固定移動追加・挿入操作を表示してはならない（MUST NOT）。ユーザーにsectionの挿入位置を指定させず、FIXEDの地点と時刻から内部配置を決めなければならない（MUST）。
 
 #### Scenario: 固定移動を追加する
 
 - **WHEN** ユーザーが「固定移動を追加」を選ぶ
 - **THEN** システムは乗車地点・出発日時・降車地点・到着日時・任意名称の入力を追加し、ROUTEへの挿入位置を聞かない
+
+#### Scenario: 固定移動を経路検索より先に追加する
+
+- **WHEN** ユーザーが入力画面で検索前に固定移動を追加する
+- **THEN** システムはそれを入力条件に保持し、gap単位の「ここへ固定移動を挿入」に類する操作を表示しない
 
 #### Scenario: 複数の固定移動を編集・削除する
 
@@ -53,6 +68,21 @@ FIXED sectionは乗車地点、出発日時、降車地点、到着日時、任�
 - **WHEN** 固定移動の地点と時刻が出発地から目的地まで連続し、検索すべきgapが0件になる
 - **THEN** システムは「経路を検索」操作で接続と期限を検証してプレビューし、検証成功後に確定可能とする
 
+#### Scenario: 固定区間だけのStandaloneを保存する
+
+- **WHEN** StandaloneのFIXEDだけで出発地から目的地までつながり、目的地・到着期限を含む全入力と時刻が有効である
+- **THEN** システムは0 gapの検証後にFIXEDのみのJourneyを保存できる。以前の `target: null` の文書は読み取り互換を維持する
+
+#### Scenario: FIXEDだけでEventの目的地へ到着する
+
+- **WHEN** Event-linkedの末尾FIXEDの降車地点とEvent targetに同じplace_idがあり、到着時刻が期限以前である
+- **THEN** システムは追加ROUTEなしで検索操作後に確定できる
+
+#### Scenario: FIXED終点をEventの目的地と同一視できない
+
+- **WHEN** Event-linkedの末尾FIXEDとtargetに一致するplace_idがない
+- **THEN** システムは名称だけで同一地点と推測せず、targetまでの公共交通検索を必要とする
+
 ### Requirement: 完成したJourneyだけを保存する
 
 Builderの入力途中、検索中、dirtyな結果、失敗gap、未確定の必要区間をFirestoreへ保存してはならない（MUST NOT）。ユーザーが完成した移動予定を確認して明示的に確定したとき、システムは既存Journey serializerでsectionsの地点・時刻・接続、target期限、全体の発着時刻を検証し、選択中のROUTEとFIXEDだけを保存しなければならない（MUST）。新規Standaloneはtargetを必須とする。保存済みJourneyの編集は元のIDへ更新しなければならない（MUST）。
@@ -61,6 +91,16 @@ Builderの入力途中、検索中、dirtyな結果、失敗gap、未確定の�
 
 - **WHEN** 必須入力が欠ける、検索中である、または入力変更後に再検索していない
 - **THEN** システムは確定を無効にし、Journeyを保存しない
+
+#### Scenario: Standaloneで目的地と期限だけを入力する
+
+- **WHEN** ユーザーが目的地と期限を入力したが、出発地も検索結果も確定していない
+- **THEN** システムはJourneyを保存しない
+
+#### Scenario: 未設定区間が残る
+
+- **WHEN** FIXEDの前後または間に必要な公共交通区間が未検索または失敗である
+- **THEN** システムは確定を無効にし、その地点間を示す
 
 #### Scenario: 一部の地点間に候補がない
 
@@ -71,6 +111,11 @@ Builderの入力途中、検索中、dirtyな結果、失敗gap、未確定の�
 
 - **WHEN** 全ての必要gapに有効な選択候補があり、FIXEDとの接続・時刻・到着期限が整合する
 - **THEN** システムは「この移動予定を確定」で先頭出発と末尾到着を導出し、選択中の各ROUTEだけを保存する
+
+#### Scenario: すべての区間が確定する
+
+- **WHEN** 全sectionの地点・時刻が確定し、順序と接続が整合する
+- **THEN** システムは最初の出発・最後の到着からJourney全体の時刻を導出して保存する
 
 #### Scenario: 保存済みStandaloneを編集する
 
@@ -86,17 +131,29 @@ Builderの入力途中、検索中、dirtyな結果、失敗gap、未確定の�
 - **WHEN** Journeyに公共交通、固定移動、公共交通が含まれる
 - **THEN** システムは独立カードの羅列ではなく一本の線上に各移動と接続地点・時刻を順番に表示する
 
+#### Scenario: ROUTEとFIXEDを表示する
+
+- **WHEN** 保存済みJourneyにROUTEとFIXEDが含まれる
+- **THEN** システムは同じ縦型タイムラインにsegment詳細、固定表示、地点と時刻を順序どおり表示する
+
 #### Scenario: Journey名を生成する
 
 - **WHEN** Event-linked Journeyを表示する
 - **THEN** システムは `移動: {event.title}` と表示する
 - **WHEN** targetのあるStandaloneを表示する
 - **THEN** システムは `移動: {destination.name}` と表示する
+- **WHEN** 既存のFIXEDのみでtargetを持たないStandaloneを表示する
+- **THEN** システムは末尾FIXEDの降車地点から表示名を生成する
 
 #### Scenario: Eventの目的地または到着期限が変わった
 
 - **WHEN** 保存済みtargetと現在のEvent targetが異なる
 - **THEN** システムは再計画を促し、保存済みsectionsとカレンダー時間ブロックを自動変更しない
+
+#### Scenario: Eventの場所または到着期限が変更された
+
+- **WHEN** Event-linked Journeyの保存済みtargetと現在のEventの目的地識別情報または到着期限が異なる
+- **THEN** システムはEvent詳細とJourney詳細に再計画を促す案内を表示し、保存済みsectionsとカレンダーの時間ブロックを自動変更しない
 
 #### Scenario: 保存済みJourneyを削除する
 
@@ -104,6 +161,30 @@ Builderの入力途中、検索中、dirtyな結果、失敗gap、未確定の�
 - **THEN** システムは対象Journey文書だけを削除し、Eventや準備項目を残す
 
 ## ADDED Requirements
+
+### Requirement: Builderを入力・検索中・確認の3状態で提供する
+
+Builderはcreate/edit/Event-linkedに共通して `input` → `searching` → `preview` の流れを提供しなければならない（MUST）。`input` は入力条件を主要表示とし、`searching` は検索の進行を主要表示とし、成功した `preview` は完成した移動予定全体の一本のタイムラインを主要表示としなければならない（MUST）。`preview` に全入力フォームや全候補一覧を常時併置してはならない（MUST NOT）。`preview` は「条件を変更」「この移動予定を確定」と公共交通部分ごとの任意の「別の候補を見る」を提供する。検索失敗は `preview` 内で区間を示し、確定を無効にする。
+
+#### Scenario: 入力から検索中へ進む
+
+- **WHEN** ユーザーが有効な入力条件で「経路を検索」を押す
+- **THEN** システムは入力の二重送信を防ぎ、検索中の表示と進捗を示す
+
+#### Scenario: 完成した移動予定を確認する
+
+- **WHEN** 必要な全区間の検索と推奨候補の選択が完了する
+- **THEN** システムは入力フォームの下へ区間別カードを足す形ではなく、一本の完成Journeyタイムラインを主要表示に切り替え、候補一覧を閉じた状態にする
+
+#### Scenario: 条件を変更する
+
+- **WHEN** ユーザーが `preview` の「条件を変更」を選ぶ
+- **THEN** システムは `input` に戻して出発地・目的地・期限・固定移動を編集可能にし、検索条件が変われば全区間の再検索完了まで確定を禁止する
+
+#### Scenario: 編集中の保存済みJourneyを再検索する
+
+- **WHEN** ユーザーがedit modeの `preview` から条件変更し、「経路を再検索」を押す
+- **THEN** システムはcreate modeと同じ `searching` から `preview` へ進み、全区間を再構築する
 
 ### Requirement: Builderの入力条件から移動全体を構築する
 
@@ -195,11 +276,21 @@ Builderはユーザーの「経路を検索」1操作で全ての必要gapを検
 - **WHEN** ユーザーが入力画面または検索結果を開く
 - **THEN** システムは内部区間の名称や番号を理解しなくても、入力、移動全体の確認、確定ができる
 
+### Requirement: Journey画面を既存PlanRailの表示体系に統一する
+
+Journeyの入力・検索・確認・詳細は、既存のmodal header、フォーム欄、操作ボタン、日時入力、地点の選択済み表示、経路タイムラインを共通の表示部品として利用しなければならない（MUST）。Journeyだけに独立したカード、ボタン、色、余白、modal shellの体系を作ってはならない（MUST NOT）。
+
+#### Scenario: Event画面とJourney画面を行き来する
+
+- **WHEN** ユーザーが予定追加・編集、移動予定追加・編集、移動予定詳細を開く
+- **THEN** システムは同じPlanRailのmodal、フォーム、ボタン、地点表示、タイムラインの視覚表現で操作を提供する
+
 ## REMOVED Requirements
 
 ### Requirement: 各ROUTE区間を個別に選択する
 
 **Reason**: 未設定ROUTEごとの手動検索・確定を廃止し、一括検索と自動選択へ置き換える。保存データのROUTE allowlistは `sectionとRouteSegmentを別の階層として扱う` と `完成したJourneyだけを保存する` で維持する。
+**Migration**: ユーザーは入力条件を指定して「経路を検索」を1回押し、推奨候補が選ばれた移動全体を確認する。
 
 #### Scenario: FIXED間に経路を入れる
 
