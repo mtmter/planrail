@@ -1892,8 +1892,10 @@
 }
 
 .route-result-times strong {
-  color: #20314e;
-  font-size: 1.35rem;
+  color: #173b7a;
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .route-result-times span,
@@ -1942,15 +1944,23 @@
 }
 
 .route-place-times {
-  flex: 0 0 60px;
+  flex: 0 0 76px;
   display: grid;
-  color: #536174;
-  font-size: 0.72rem;
+  color: #4b5c73;
+  font-size: 0.75rem;
+  font-weight: 700;
   line-height: 1.4;
 }
 
 .route-place-times > span {
   white-space: nowrap;
+}
+
+.route-place-times time {
+  color: #173b7a;
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .route-place strong {
