@@ -1588,8 +1588,8 @@
   display: contents;
 }
 
-.journey-wait {
-  min-height: 40px;
+.journey-timeline .journey-wait {
+  min-height: 36px;
   color: #64748b;
   font-size: 0.8rem;
 }
