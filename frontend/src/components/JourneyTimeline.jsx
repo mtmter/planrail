@@ -37,7 +37,11 @@ export default function JourneyTimeline({ sections, onCandidateChange, candidate
       departureAt={departureAt}
       arrivalAt={arrivalAt}
       durationMinutes={minutesBetween(departureAt, arrivalAt)}
-      heading={originName && destinationName ? `${originName} → ${destinationName}` : null}
+      heading={originName && destinationName ? <>
+        <span>{originName}</span>
+        <span aria-hidden="true">→</span>
+        <span>{destinationName}</span>
+      </> : null}
       className="journey-result-heading"
       ariaLabel="移動予定全体の出発時刻、到着時刻、所要時間"
     />}
