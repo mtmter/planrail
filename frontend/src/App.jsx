@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import AddEventModal from "./components/AddEventModal";
+import AddChoiceModal from "./components/AddChoiceModal";
 import AccountMenu from "./components/AccountMenu";
 import CalendarToolbar from "./components/CalendarToolbar";
 import DayCalendar from "./components/DayCalendar";
 import EventDetailsModal from "./components/EventDetailsModal";
+import JourneyBuilderModal from "./components/JourneyBuilderModal";
+import JourneyDetailsModal from "./components/JourneyDetailsModal";
 import MiniCalendar from "./components/MiniCalendar";
 import MonthCalendar from "./components/MonthCalendar";
 import PreparationReminderList from "./components/PreparationReminderList";
@@ -16,9 +19,9 @@ import {
   createPreparation as createFirestorePreparation,
   deleteEvent as deleteFirestoreEvent,
   deletePreparation as deleteFirestorePreparation,
-  getTravelPlan as getFirestoreTravelPlan,
+  getJourney as getFirestoreJourney,
   loadScheduleData,
-  saveTravelPlan as saveFirestoreTravelPlan,
+  saveJourney as saveFirestoreJourney,
   updateEvent as updateFirestoreEvent,
   updatePreparation as updateFirestorePreparation,
 } from "./firestoreService";
@@ -33,9 +36,8 @@ import {
   parseDateTime,
   toDateTimeInputValue,
 } from "./dateUtils";
-import { requestRouteSearch } from "./routeSearchApi";
+import { journeyDisplayName } from "./journeySerializer";
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_API_BASE_URL;
 const PREPARATION_REMINDER_STORAGE_KEY =
   "ryuute_preparation_reminder_minutes";
 const DEFAULT_PREPARATION_REMINDER_MINUTES = 3 * 24 * 60;
@@ -167,13 +169,16 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
   const [events, setEvents] = useState([]);
+  const [journeys, setJourneys] = useState([]);
   const [preparations, setPreparations] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [preparationErrorMessage, setPreparationErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [addModalValues, setAddModalValues] = useState(null);
+  const [isAddChoiceOpen, setIsAddChoiceOpen] = useState(false);
+  const [isJourneyBuilderOpen, setIsJourneyBuilderOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [routeSearchResult, setRouteSearchResult] = useState(null);
+  const [selectedJourney, setSelectedJourney] = useState(null);
   const [isReminderSettingsOpen, setIsReminderSettingsOpen] = useState(false);
   const [preparationReminderMinutes, setPreparationReminderMinutes] = useState(
     getInitialPreparationReminderMinutes,
@@ -185,6 +190,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
       try {
         const scheduleData = await loadScheduleData(user.uid);
         setEvents(scheduleData.events);
+        setJourneys(scheduleData.journeys ?? []);
         setPreparations(scheduleData.preparations);
         setPreparationErrorMessage(
           scheduleData.preparations === null
@@ -264,6 +270,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     try {
       const scheduleData = await loadScheduleData(user.uid);
       setEvents(scheduleData.events);
+      setJourneys(scheduleData.journeys ?? []);
       setPreparations(scheduleData.preparations);
       setPreparationErrorMessage(
         scheduleData.preparations === null
@@ -278,6 +285,11 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
   }
 
   function handleAddButtonClick() {
+    setIsAddChoiceOpen(true);
+  }
+
+  function handleAddEventChoice() {
+    setIsAddChoiceOpen(false);
     const today = new Date();
 
     if (activeView === "month") {
@@ -329,7 +341,6 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
       ),
     );
     setSelectedEvent(updatedEvent);
-    setRouteSearchResult(null);
   }
 
   async function handleDeleteEvent(eventId) {
@@ -338,13 +349,15 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     setEvents((currentEvents) =>
       currentEvents.filter((currentEvent) => currentEvent.id !== eventId),
     );
+    setJourneys((currentJourneys) =>
+      currentJourneys.filter((journey) => journey.event_id !== String(eventId)),
+    );
     setPreparations((currentPreparations) =>
       currentPreparations?.filter(
         (preparation) => preparation.event_id !== eventId,
       ) ?? null,
     );
     setSelectedEvent(null);
-    setRouteSearchResult(null);
   }
 
   async function handleCreatePreparation(eventId, title) {
@@ -393,41 +406,42 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     );
   }
 
-  async function handleRouteSearch(eventId, originRequest) {
-    const event = events.find((currentEvent) => currentEvent.id === eventId);
-
-    if (!event) {
-      throw new Error("予定が見つかりません");
-    }
-
-    return requestRouteSearch(`${API_BASE_URL}/route-search`, {
-      ...originRequest,
-      event: {
-        start_at: event.start_at,
-        location_name: event.location_name,
-        destination: event.destination,
-        destination_lat: event.destination_lat,
-        destination_lng: event.destination_lng,
-        destination_place_types: event.destination_place_types ?? [],
-        arrival_buffer_minutes: event.arrival_buffer_minutes,
-      },
+  async function handleJourneySave(journey) {
+    const savedJourney = await saveFirestoreJourney(user.uid, journey);
+    setJourneys((current) => {
+      const withoutExisting = current.filter((item) => item.id !== savedJourney.id);
+      return [...withoutExisting, savedJourney];
     });
+    setIsJourneyBuilderOpen(false);
+    return savedJourney;
   }
 
-  async function handleRouteRegister(eventId, route) {
-    const savedTravelPlan = await saveFirestoreTravelPlan(
-      user.uid,
-      eventId,
-      route,
-    );
-    setRouteSearchResult(null);
-    return savedTravelPlan;
-  }
-
-  const handleTravelPlanLoad = useCallback(
-    (eventId) => getFirestoreTravelPlan(user.uid, eventId),
+  const handleJourneyLoad = useCallback(
+    (journeyId) => getFirestoreJourney(user.uid, journeyId),
     [user.uid],
   );
+
+  const calendarItems = [
+    ...events,
+    ...journeys.map((journey) => {
+      const linkedEvent = events.find((event) => event.id === journey.event_id);
+      return {
+        ...journey,
+        itemType: "journey",
+        title: journeyDisplayName(journey, linkedEvent),
+        start_at: journey.departure_at,
+        end_at: journey.arrival_at,
+      };
+    }),
+  ];
+
+  function handleCalendarItemClick(item) {
+    if (item.itemType === "journey") {
+      setSelectedJourney(item);
+    } else {
+      setSelectedEvent(item);
+    }
+  }
 
   return (
     <div className="schedule-app calendar-view-active">
@@ -585,23 +599,23 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
             <div className="calendar-main-panel">
               {activeView === "month" ? (
                 <MonthCalendar
-                  events={events}
+                  events={calendarItems}
                   selectedDate={selectedDate}
                   onDateClick={handleMonthDateClick}
-                  onEventClick={setSelectedEvent}
+                  onEventClick={handleCalendarItemClick}
                 />
               ) : activeView === "week" ? (
                 <WeekCalendar
-                  events={events}
+                  events={calendarItems}
                   selectedDate={selectedDate}
-                  onEventClick={setSelectedEvent}
+                  onEventClick={handleCalendarItemClick}
                   onTimeClick={handleWeekTimeClick}
                 />
               ) : (
                 <DayCalendar
-                  events={events}
+                  events={calendarItems}
                   selectedDate={selectedDate}
-                  onEventClick={setSelectedEvent}
+                  onEventClick={handleCalendarItemClick}
                   onTimeClick={handleWeekTimeClick}
                 />
               )}
@@ -615,6 +629,24 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
           initialValues={addModalValues}
           onClose={() => setAddModalValues(null)}
           onSubmit={handleCreateEvent}
+        />
+      )}
+
+      {isAddChoiceOpen && (
+        <AddChoiceModal
+          onClose={() => setIsAddChoiceOpen(false)}
+          onChooseEvent={handleAddEventChoice}
+          onChooseJourney={() => {
+            setIsAddChoiceOpen(false);
+            setIsJourneyBuilderOpen(true);
+          }}
+        />
+      )}
+
+      {isJourneyBuilderOpen && (
+        <JourneyBuilderModal
+          onClose={() => setIsJourneyBuilderOpen(false)}
+          onSave={handleJourneySave}
         />
       )}
 
@@ -636,19 +668,22 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
           onPreparationAdd={handleCreatePreparation}
           onPreparationDelete={handleDeletePreparation}
           onPreparationUpdate={handleUpdatePreparation}
-          onTravelPlanLoad={handleTravelPlanLoad}
-          onRouteRegister={handleRouteRegister}
-          onRouteSearch={handleRouteSearch}
-          onRouteSearchSuccess={(result) =>
-            setRouteSearchResult({ eventId: selectedEvent.id, result })
-          }
+          onJourneyLoad={handleJourneyLoad}
+          onJourneySave={handleJourneySave}
           onUpdate={handleUpdateEvent}
           preparations={
             preparations?.filter(
               (preparation) => preparation.event_id === selectedEvent.id,
             ) ?? null
           }
-          routeSearchResult={routeSearchResult}
+        />
+      )}
+
+      {selectedJourney && (
+        <JourneyDetailsModal
+          journey={selectedJourney}
+          event={events.find((event) => event.id === selectedJourney.event_id) ?? null}
+          onClose={() => setSelectedJourney(null)}
         />
       )}
 

@@ -585,6 +585,12 @@
   cursor: pointer;
 }
 
+.month-event.is-journey,
+.week-event.is-journey {
+  color: #7a3b0a;
+  background: #ffe3c2;
+}
+
 .month-event.continues-before {
   margin-left: -9px;
   padding-left: 9px;
@@ -625,6 +631,13 @@
 .week-event:hover,
 .week-event:focus-visible {
   background: #c9d9f8;
+}
+
+.month-event.is-journey:hover,
+.month-event.is-journey:focus-visible,
+.week-event.is-journey:hover,
+.week-event.is-journey:focus-visible {
+  background: #ffd3a1;
 }
 
 .month-item-time {
@@ -707,6 +720,11 @@
   text-align: left;
 }
 
+.month-events-popover-event.is-journey {
+  color: #7a3b0a;
+  background: #ffe3c2;
+}
+
 .month-events-popover-event > span:last-child {
   min-width: 0;
   overflow: hidden;
@@ -717,6 +735,11 @@
 .month-events-popover-event:hover,
 .month-events-popover-event:focus-visible {
   background: #c9d9f8;
+}
+
+.month-events-popover-event.is-journey:hover,
+.month-events-popover-event.is-journey:focus-visible {
+  background: #ffd3a1;
 }
 
 .month-events-popover-event:focus-visible {
@@ -1391,6 +1414,102 @@
 .route-search-guidance {
   color: #747f91;
   font-size: 0.86rem;
+}
+
+.journey-replan-warning {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #f0c36b;
+  border-radius: 8px;
+  color: #79520b;
+  background: #fff8e7;
+  font-size: 0.86rem;
+}
+
+.journey-builder-modal {
+  max-width: 760px;
+}
+
+.journey-builder-content {
+  display: grid;
+  gap: 16px;
+  max-height: 72vh;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.journey-builder-section {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border-color, #d8dee8);
+  border-radius: 12px;
+  background: var(--surface-muted, #f8fafc);
+}
+
+.journey-builder-section h3,
+.journey-builder-candidates h3 {
+  margin: 0;
+}
+
+.journey-builder-route-actions,
+.journey-builder-candidates {
+  display: grid;
+  gap: 10px;
+}
+
+.text-button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  color: #536174;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  text-decoration: underline;
+}
+
+.text-button:hover {
+  color: #244fae;
+}
+
+.text-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.journey-builder-candidates button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-color, #d8dee8);
+  border-radius: 8px;
+  background: white;
+  text-align: left;
+}
+
+.journey-builder-candidates button.is-selected {
+  border-color: #2d5dcc;
+  box-shadow: 0 0 0 2px rgb(45 93 204 / 15%);
+}
+
+.journey-fixed-card {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border-left: 3px solid #64748b;
+  background: #f8fafc;
+}
+
+.journey-detail-timeline {
+  display: grid;
+  gap: 12px;
+}
+
+.add-choice-actions {
+  padding: 24px;
 }
 
 .travel-plan-section {

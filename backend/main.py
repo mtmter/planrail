@@ -63,7 +63,7 @@ class RouteSearchRequest(BaseModel):
 
 
 class RouteSearchEvent(BaseModel):
-    start_at: str
+    start_at: str | None = None
     location_name: str | None = None
     destination: str | None = None
     destination_lat: float | None = None
@@ -72,8 +72,26 @@ class RouteSearchEvent(BaseModel):
     arrival_buffer_minutes: int | None = None
 
 
+class RoutePlacePoint(BaseModel):
+    name: str = ""
+    address: str | None = None
+    place_id: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+    types: list[str] = Field(default_factory=list)
+
+
 class DirectRouteSearchRequest(RouteSearchRequest):
-    event: RouteSearchEvent
+    event: RouteSearchEvent | None = None
+    origin: RoutePlacePoint | None = None
+    destination: RoutePlacePoint | None = None
+    destination_name: str | None = None
+    destination_address: str | None = None
+    destination_place_id: str | None = None
+    destination_lat: float | None = None
+    destination_lng: float | None = None
+    destination_place_types: list[str] | None = None
+    time_constraint: dict | None = None
 
 
 class RouteFare(BaseModel):
@@ -189,13 +207,25 @@ def search_direct_route(request: DirectRouteSearchRequest):
 
 
 def _search_direct_route(request: DirectRouteSearchRequest):
+    if request.event is None and request.time_constraint is None:
+        raise HTTPException(status_code=400, detail="時間制約を指定してください")
+
     event = request.event
-    origin_name = clean_optional_text(request.origin_name)
-    origin_address = clean_optional_text(request.origin_address)
-    origin_coordinates = format_route_coordinates(
-        request.origin_lat,
-        request.origin_lng,
+    origin_name = clean_optional_text(
+        request.origin.name if request.origin is not None else request.origin_name
     )
+    origin_address = clean_optional_text(
+        request.origin.address if request.origin is not None else request.origin_address
+    )
+    origin_coordinates = format_route_coordinates(
+        request.origin.lat if request.origin is not None else request.origin_lat,
+        request.origin.lng if request.origin is not None else request.origin_lng,
+    )
+    if not origin_coordinates:
+        raise HTTPException(
+            status_code=400,
+            detail="出発地として利用できるGoogle Places候補を選択してください",
+        )
     origin = origin_coordinates or origin_address or origin_name
     if not origin:
         raise HTTPException(
@@ -204,12 +234,29 @@ def _search_direct_route(request: DirectRouteSearchRequest):
         )
     origin_display_name = origin_name or origin_address or origin
 
-    destination_address = clean_optional_text(event.destination)
-    destination_location_name = clean_optional_text(event.location_name)
-    destination_coordinates = format_route_coordinates(
-        event.destination_lat,
-        event.destination_lng,
+    destination_address = clean_optional_text(
+        event.destination
+        if event is not None
+        else (request.destination.address if request.destination is not None else request.destination_address)
     )
+    destination_location_name = clean_optional_text(
+        event.location_name
+        if event is not None
+        else (request.destination.name if request.destination is not None else request.destination_name)
+    )
+    destination_coordinates = format_route_coordinates(
+        event.destination_lat
+        if event is not None
+        else (request.destination.lat if request.destination is not None else request.destination_lat),
+        event.destination_lng
+        if event is not None
+        else (request.destination.lng if request.destination is not None else request.destination_lng),
+    )
+    if not destination_coordinates:
+        raise HTTPException(
+            status_code=400,
+            detail="経路検索には予定の目的地をPlaces候補から選択してください",
+        )
     destination = (
         destination_coordinates
         or destination_address
@@ -217,32 +264,84 @@ def _search_direct_route(request: DirectRouteSearchRequest):
     )
     if not destination:
         raise HTTPException(status_code=400, detail="予定に目的地が設定されていません")
-    destination_display_name = (
-        destination_location_name or destination_address or destination
+    destination_display_name = destination_location_name or destination_address or destination
+
+    constraint = {}
+    if event is not None:
+        if not event.start_at:
+            raise HTTPException(status_code=400, detail="予定の開始日時が不正です")
+        try:
+            event_start = datetime.strptime(event.start_at, "%Y-%m-%dT%H:%M")
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail="予定の開始日時が不正です") from error
+        desired_arrival_at = event_start - timedelta(minutes=event.arrival_buffer_minutes or 0)
+        constraint_type = "arrival"
+        destination_types = event.destination_place_types
+    else:
+        constraint = request.time_constraint or {}
+        constraint_type = constraint.get("type")
+        constraint_at = constraint.get("at")
+        if constraint_type not in {"arrival", "departure"}:
+            raise HTTPException(status_code=400, detail="時間制約の種類が不正です")
+        try:
+            desired_arrival_at = datetime.strptime(constraint_at, "%Y-%m-%dT%H:%M")
+        except (TypeError, ValueError) as error:
+            raise HTTPException(status_code=400, detail="時間制約の日時が不正です") from error
+        destination_types = (
+            request.destination.types
+            if request.destination is not None
+            else request.destination_place_types
+        )
+
+    origin_types = (
+        request.origin.types if request.origin is not None else request.origin_place_types
     )
 
     try:
-        event_start = datetime.strptime(event.start_at, "%Y-%m-%dT%H:%M")
-    except ValueError as error:
-        raise HTTPException(
-            status_code=400,
-            detail="予定の開始日時が不正です",
-        ) from error
-
-    desired_arrival_at = event_start - timedelta(
-        minutes=event.arrival_buffer_minutes or 0,
-    )
-
-    try:
-        return search_route(
+        result = search_route(
             origin,
             destination,
             desired_arrival_at,
+            constraint_type=constraint_type,
             origin_display_name=origin_display_name,
             destination_display_name=destination_display_name,
-            origin_place_types=request.origin_place_types,
-            destination_place_types=event.destination_place_types,
+            origin_place_types=origin_types,
+            destination_place_types=destination_types,
         )
+        if constraint:
+            constraint_at = constraint["at"]
+            candidates = result.get("candidates", [])
+            if constraint_type == "arrival":
+                candidates = [
+                    candidate
+                    for candidate in candidates
+                    if not candidate.get("arrival_at")
+                    or candidate["arrival_at"] <= constraint_at
+                ]
+            else:
+                candidates = [
+                    candidate
+                    for candidate in candidates
+                    if not candidate.get("departure_at")
+                    or candidate["departure_at"] >= constraint_at
+                ]
+            latest_arrival_at = constraint.get("latest_arrival_at")
+            if latest_arrival_at:
+                try:
+                    datetime.strptime(latest_arrival_at, "%Y-%m-%dT%H:%M")
+                except (TypeError, ValueError) as error:
+                    raise HTTPException(status_code=400, detail="到着上限の日時が不正です") from error
+                candidates = [
+                    candidate
+                    for candidate in candidates
+                    if not candidate.get("arrival_at")
+                    or candidate["arrival_at"] <= latest_arrival_at
+                ]
+            result["candidates"] = candidates
+            if not result["candidates"]:
+                raise HTTPException(status_code=404, detail="時間条件を満たす経路が見つかりませんでした")
+            result["recommended_candidate_id"] = result["candidates"][0]["candidate_id"]
+        return result
     except RouteNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except RouteEndpointResolutionError as error:

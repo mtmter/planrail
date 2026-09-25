@@ -70,6 +70,7 @@ def get_route(
     origin,
     destination,
     arrival_at,
+    constraint_type="arrival",
     origin_display_name=None,
     destination_display_name=None,
     origin_place_types=None,
@@ -96,12 +97,15 @@ def get_route(
     )
     arrival_datetime = _as_japan_datetime(arrival_at)
 
+    if constraint_type not in {"arrival", "departure"}:
+        raise TransitResponseError("経路検索の時間制約が不正です")
+
     query_parameters = {
         "from": origin_endpoint,
         "to": destination_endpoint,
         "date": arrival_datetime.strftime("%Y%m%d"),
         "time": arrival_datetime.strftime("%H:%M"),
-        "type": "arrival",
+        "type": constraint_type,
         "numItineraries": "3",
         "strategy": "balanced",
         "live": "false",

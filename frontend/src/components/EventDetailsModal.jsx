@@ -3,8 +3,8 @@ import { WEEKDAY_NAMES, parseDateTime } from "../dateUtils";
 import DateTimePicker from "./DateTimePicker";
 import PlaceAutocompleteInput from "./PlaceAutocompleteInput";
 import PreparationChecklist from "./PreparationChecklist";
-import RouteSearchModal from "./RouteSearchModal";
-import TravelPlanDetails from "./TravelPlanDetails";
+import JourneyBuilderModal from "./JourneyBuilderModal";
+import JourneyDetails from "./JourneyDetails";
 
 function formatEventDateTime(value) {
   const date = parseDateTime(value);
@@ -17,7 +17,31 @@ function formatEventDateTime(value) {
 }
 
 function hasCoordinateValue(value) {
-  return value !== null && value !== undefined;
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function getEventArrivalDeadline(event) {
+  const start = parseDateTime(event.start_at);
+  if (!start) {
+    return "";
+  }
+  start.setMinutes(start.getMinutes() - (event.arrival_buffer_minutes || 0));
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T${pad(start.getHours())}:${pad(start.getMinutes())}`;
+}
+
+function placesMatch(firstPlace, secondPlace) {
+  if (!firstPlace || !secondPlace) {
+    return firstPlace === secondPlace;
+  }
+  if (firstPlace.place_id || secondPlace.place_id) {
+    return firstPlace.place_id === secondPlace.place_id;
+  }
+  return (
+    firstPlace.lat === secondPlace.lat &&
+    firstPlace.lng === secondPlace.lng &&
+    firstPlace.address === secondPlace.address
+  );
 }
 
 function getSavedPlace(event) {
@@ -77,13 +101,10 @@ function EventDetailsModal({
   onPreparationDelete,
   onPreparationUpdate,
   onDelete,
-  onRouteRegister,
-  onRouteSearch,
-  onRouteSearchSuccess,
-  onTravelPlanLoad,
+  onJourneyLoad,
+  onJourneySave,
   onUpdate,
   preparations,
-  routeSearchResult,
 }) {
   const [mode, setMode] = useState("details");
   const [title, setTitle] = useState(event.title);
@@ -102,11 +123,10 @@ function EventDetailsModal({
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRouteSearching, setIsRouteSearching] = useState(false);
-  const [travelPlan, setTravelPlan] = useState(null);
-  const [isTravelPlanLoading, setIsTravelPlanLoading] = useState(true);
+  const [journey, setJourney] = useState(null);
+  const [isJourneyLoading, setIsJourneyLoading] = useState(true);
 
-  const isBusy = isSubmitting || isRouteSearching;
+  const isBusy = isSubmitting;
   const googleMapsUrl = createGoogleMapsUrl(event);
   const hasCoordinates =
     hasCoordinateValue(event.destination_lat) &&
@@ -120,19 +140,19 @@ function EventDetailsModal({
         ? "Google Mapsで場所を表示"
         : "未設定");
   const canSearchRoute = hasCoordinates;
-  const travelPlanEmptyMessage =
-    event.destination || event.location_name || hasCoordinates
-      ? "移動予定がありません"
-      : "経路検索には予定の目的地が必要です";
-
+  const journeyNeedsReplan = Boolean(
+    journey &&
+      (!placesMatch(journey.target?.destination, getSavedPlace(event)) ||
+        journey.target?.arrival_deadline !== getEventArrivalDeadline(event)),
+  );
   useEffect(() => {
     let shouldIgnoreResult = false;
 
-    async function loadTravelPlan() {
+    async function loadJourney() {
       try {
-        const loadedTravelPlan = await onTravelPlanLoad(event.id);
+        const loadedJourney = await onJourneyLoad(`event-${event.id}`);
         if (!shouldIgnoreResult) {
-          setTravelPlan(loadedTravelPlan);
+          setJourney(loadedJourney);
         }
       } catch (loadError) {
         if (!shouldIgnoreResult) {
@@ -140,17 +160,17 @@ function EventDetailsModal({
         }
       } finally {
         if (!shouldIgnoreResult) {
-          setIsTravelPlanLoading(false);
+          setIsJourneyLoading(false);
         }
       }
     }
 
-    loadTravelPlan();
+    loadJourney();
 
     return () => {
       shouldIgnoreResult = true;
     };
-  }, [event.id, onTravelPlanLoad]);
+  }, [event.id, onJourneyLoad]);
 
   useEffect(() => {
     function handleKeyDown(keyEvent) {
@@ -287,7 +307,7 @@ function EventDetailsModal({
               {mode === "edit"
                 ? "予定を編集"
                 : mode === "route"
-                  ? "経路を検索"
+                  ? "移動を計画"
                   : event.title}
             </h2>
           </div>
@@ -303,23 +323,15 @@ function EventDetailsModal({
         </div>
 
         {mode === "route" ? (
-          <RouteSearchModal
+          <JourneyBuilderModal
             event={event}
-            onBack={() => setMode("details")}
-            onBusyChange={setIsRouteSearching}
-            onRegister={onRouteRegister}
-            onRegisterSuccess={(savedTravelPlan) => {
-              setTravelPlan(savedTravelPlan);
+            onClose={() => setMode("details")}
+            onSave={async (nextJourney) => {
+              const savedJourney = await onJourneySave(nextJourney);
+              setJourney(savedJourney);
               setErrorMessage("");
               setMode("details");
             }}
-            onSearch={onRouteSearch}
-            onSearchSuccess={onRouteSearchSuccess}
-            initialRouteResult={
-              routeSearchResult?.eventId === event.id
-                ? routeSearchResult.result
-                : null
-            }
           />
         ) : mode === "edit" ? (
           <form
@@ -544,21 +556,28 @@ function EventDetailsModal({
               onUpdate={onPreparationUpdate}
             />
 
-            {isTravelPlanLoading ? (
+            {isJourneyLoading ? (
               <section className="travel-plan-section">
                 <h3>移動予定</h3>
                 <p className="travel-plan-empty">読み込み中...</p>
               </section>
             ) : (
-              <TravelPlanDetails
-                emptyMessage={travelPlanEmptyMessage}
-                isSearchDisabled={!canSearchRoute}
-                travelPlan={travelPlan}
-                onSearch={() => {
-                  setErrorMessage("");
-                  setMode("route");
-                }}
-              />
+              <>
+                {journeyNeedsReplan && (
+                  <p className="journey-replan-warning" role="status">
+                    予定の目的地または到着期限が変更されています。移動を再計画してください。
+                  </p>
+                )}
+                <JourneyDetails
+                  journey={journey}
+                  emptyMessage={canSearchRoute ? "移動予定がありません" : "経路検索には予定の目的地が必要です"}
+                  isSearchDisabled={!canSearchRoute}
+                  onPlan={() => {
+                    setErrorMessage("");
+                    setMode("route");
+                  }}
+                />
+              </>
             )}
 
             {errorMessage && (

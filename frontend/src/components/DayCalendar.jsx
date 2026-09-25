@@ -18,6 +18,46 @@ function formatMinutes(minutes) {
   return `${hour}:${minute}`;
 }
 
+function layoutOverlappingEvents(events, date) {
+  const positioned = events
+    .map((event) => ({
+      event,
+      position: getEventPositionForDay(event, date),
+    }))
+    .sort((first, second) => first.position.startMinutes - second.position.startMinutes);
+  const laidOut = [];
+  let cluster = [];
+  let clusterEnd = -1;
+
+  function flushCluster() {
+    if (!cluster.length) return;
+    const laneEnds = [];
+    cluster.forEach((item) => {
+      let lane = laneEnds.findIndex((end) => end <= item.position.startMinutes);
+      if (lane === -1) lane = laneEnds.length;
+      laneEnds[lane] = item.position.startMinutes + item.position.durationMinutes;
+      laidOut.push({ ...item, lane, laneCount: 0 });
+    });
+    laidOut.slice(-cluster.length).forEach((item) => {
+      item.laneCount = laneEnds.length;
+    });
+    cluster = [];
+  }
+
+  positioned.forEach((item) => {
+    if (cluster.length && item.position.startMinutes >= clusterEnd) {
+      flushCluster();
+    }
+    cluster.push(item);
+    clusterEnd = Math.max(
+      clusterEnd,
+      item.position.startMinutes + item.position.durationMinutes,
+    );
+  });
+  flushCluster();
+  return laidOut;
+}
+
 function DayCalendar({
   events,
   selectedDate,
@@ -89,18 +129,20 @@ function DayCalendar({
                   onTimeClick(selectedDate, roundedMinutes);
                 }}
               >
-                {dateEvents.map((event) => {
-                  const position = getEventPositionForDay(event, selectedDate);
+                {layoutOverlappingEvents(dateEvents, selectedDate).map(({ event, position, lane, laneCount }) => {
 
                   return (
                     <div
-                      className="week-event"
+                      className={`week-event${event.itemType === "journey" ? " is-journey" : ""}`}
                       style={{
                         top: `${(position.startMinutes / 60) * HOUR_HEIGHT}px`,
                         height: `${Math.max(
                           (position.durationMinutes / 60) * HOUR_HEIGHT,
                           28,
                         )}px`,
+                        left: `calc(${(lane * 100) / laneCount}% + 4px)`,
+                        right: "auto",
+                        width: `calc(${100 / laneCount}% - 8px)`,
                       }}
                       title={event.title}
                       key={event.id}
