@@ -1559,7 +1559,12 @@
 }
 
 .journey-result-heading h3 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(64px, auto) minmax(0, 1fr);
+  align-items: end;
+  gap: 14px;
   overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .journey-timeline-part {
