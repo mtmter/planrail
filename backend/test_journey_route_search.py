@@ -52,8 +52,8 @@ class JourneyRouteSearchTest(unittest.TestCase):
             "main.search_route",
             return_value={
                 "candidates": [
-                    {"candidate_id": "candidate-1", "arrival_at": "2026-10-01T08:50"},
-                    {"candidate_id": "candidate-2", "arrival_at": "2026-10-01T09:10"},
+                    {"candidate_id": "candidate-1", "departure_at": "2026-10-01T08:10", "arrival_at": "2026-10-01T08:50"},
+                    {"candidate_id": "candidate-2", "departure_at": "2026-10-01T08:20", "arrival_at": "2026-10-01T09:10"},
                 ],
                 "recommended_candidate_id": "candidate-2",
                 "warnings": [],
@@ -63,6 +63,43 @@ class JourneyRouteSearchTest(unittest.TestCase):
 
         self.assertEqual([item["candidate_id"] for item in result["candidates"]], ["candidate-1"])
         self.assertEqual(result["recommended_candidate_id"], "candidate-1")
+
+    def test_invalid_latest_arrival_is_rejected_before_provider_call(self):
+        request = main.DirectRouteSearchRequest.model_validate(
+            {
+                "origin": {"name": "出発", "lat": 33.5, "lng": 130.4},
+                "destination": {"name": "到着", "lat": 33.6, "lng": 130.5},
+                "time_constraint": {
+                    "type": "departure", "at": "2026-10-01T10:00",
+                    "latest_arrival_at": "2026-10-01T09:00",
+                },
+            }
+        )
+        with patch("main.search_route") as provider:
+            with self.assertRaises(HTTPException) as context:
+                main.search_direct_route(request)
+        self.assertEqual(context.exception.status_code, 400)
+        provider.assert_not_called()
+
+    def test_candidate_without_departure_time_cannot_satisfy_departure_bound(self):
+        request = main.DirectRouteSearchRequest.model_validate(
+            {
+                "origin": {"name": "出発", "lat": 33.5, "lng": 130.4},
+                "destination": {"name": "到着", "lat": 33.6, "lng": 130.5},
+                "time_constraint": {
+                    "type": "departure", "at": "2026-10-01T08:00",
+                    "latest_arrival_at": "2026-10-01T09:00",
+                },
+            }
+        )
+        with patch("main.search_route", return_value={
+            "candidates": [{"candidate_id": "missing-time", "arrival_at": "2026-10-01T08:50"}],
+            "recommended_candidate_id": "missing-time",
+            "warnings": [],
+        }):
+            with self.assertRaises(HTTPException) as context:
+                main.search_direct_route(request)
+        self.assertEqual(context.exception.status_code, 404)
 
 
 if __name__ == "__main__":

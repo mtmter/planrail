@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   journeyDisplayName,
   journeyMatchesDate,
+  isJourneyDateTime,
   serializeJourney,
 } from "./journeySerializer.js";
 
@@ -116,4 +117,30 @@ test("journeyMatchesDate keeps Japanese wall-clock day boundaries", () => {
   assert.equal(journeyMatchesDate(journey, new Date(2026, 9, 1)), true);
   assert.equal(journeyMatchesDate(journey, new Date(2026, 9, 2)), true);
   assert.equal(journeyMatchesDate(journey, new Date(2026, 9, 3)), false);
+});
+
+test("save boundary rejects invalid dates, route fields, and section gaps", () => {
+  assert.equal(isJourneyDateTime("2026-02-30T25:61"), false);
+  const route = {
+    origin: "自宅", destination: "会場",
+    departure_at: "2026-10-01T10:00", arrival_at: "2026-10-01T10:30",
+    duration_minutes: 30, transport_mode: "transit",
+    segments: [{ type: "TRANSIT", from: "自宅", to: "会場",
+      departure_at: "2026-10-01T10:00", arrival_at: "2026-10-01T10:30",
+      duration_minutes: 30 }],
+  };
+  const origin = { name: "自宅", place_id: "origin", lat: 33.5, lng: 130.5 };
+  const destination = { name: "会場", place_id: "venue", lat: 33.6, lng: 130.6 };
+  const journey = {
+    event_id: null,
+    target: { destination, arrival_deadline: "2026-10-01T11:00" },
+    departure_at: route.departure_at, arrival_at: route.arrival_at,
+    sections: [{ kind: "ROUTE", origin, destination, route }],
+  };
+  assert.doesNotThrow(() => serializeJourney(journey));
+  assert.throws(() => serializeJourney({ ...journey, target: null }), /目的地と到着期限/);
+  assert.throws(() => serializeJourney({ ...journey, sections: [{ ...journey.sections[0], route: { ...route, duration_minutes: -1 } }] }), /必須情報/);
+  assert.throws(() => serializeJourney({ ...journey, sections: [{ ...journey.sections[0], route: { ...route, segments: [{ ...route.segments[0], from: "" }] } }] }), /segment/);
+  assert.throws(() => serializeJourney({ ...journey, departure_at: "2026-10-01T09:00" }), /先頭区間/);
+  assert.throws(() => serializeJourney({ ...journey, target: { destination: { ...destination, place_id: "other", lat: 34 }, arrival_deadline: "2026-10-01T11:00" } }), /目的地に接続/);
 });

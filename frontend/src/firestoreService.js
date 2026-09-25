@@ -58,13 +58,18 @@ export async function updateEvent(uid, eventId, eventData) {
 }
 
 export async function deleteEvent(uid, eventId) {
-  const batch = writeBatch(db);
   const preparationsSnapshot = await getDocs(
     query(
       userCollection(uid, "preparations"),
       where("event_id", "==", String(eventId)),
     ),
   );
+
+  // Eventと関連データを同時に消せない件数では、何も削除しない。
+  if (preparationsSnapshot.size + 2 > 500) {
+    throw new Error("関連する準備項目が多すぎるため、この予定を一括削除できません");
+  }
+  const batch = writeBatch(db);
 
   preparationsSnapshot.docs.forEach((preparationDocument) => {
     batch.delete(preparationDocument.ref);

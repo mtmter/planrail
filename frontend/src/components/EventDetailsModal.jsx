@@ -5,6 +5,7 @@ import EventPlaceField from "./EventPlaceField";
 import PreparationChecklist from "./PreparationChecklist";
 import JourneyBuilderModal from "./JourneyBuilderModal";
 import JourneyDetails from "./JourneyDetails";
+import { getEventArrivalDeadline } from "../eventJourneyTarget";
 
 function formatEventDateTime(value) {
   const date = parseDateTime(value);
@@ -18,16 +19,6 @@ function formatEventDateTime(value) {
 
 function hasCoordinateValue(value) {
   return typeof value === "number" && Number.isFinite(value);
-}
-
-function getEventArrivalDeadline(event) {
-  const start = parseDateTime(event.start_at);
-  if (!start) {
-    return "";
-  }
-  start.setMinutes(start.getMinutes() - (event.arrival_buffer_minutes || 0));
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T${pad(start.getHours())}:${pad(start.getMinutes())}`;
 }
 
 function placesMatch(firstPlace, secondPlace) {

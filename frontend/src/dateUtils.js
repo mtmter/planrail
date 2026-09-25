@@ -68,57 +68,46 @@ export function isSameDay(firstDate, secondDate) {
   return getDateKey(firstDate) === getDateKey(secondDate);
 }
 
+function calendarInterval(event) {
+  const start = event.start_at;
+  if (typeof start !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start)) return null;
+  const end = event.end_at && event.end_at > start ? event.end_at : null;
+  if (end) return { start, end };
+  const [year, month, day, hour, minute] = start.match(/\d+/g).map(Number);
+  const fallback = new Date(Date.UTC(year, month - 1, day, hour, minute + 30)).toISOString().slice(0, 16);
+  return { start, end: fallback };
+}
+
+function dayBounds(date) {
+  const day = getDateKey(date);
+  const next = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate() + 1)).toISOString().slice(0, 10);
+  return { start: `${day}T00:00`, end: `${next}T00:00` };
+}
+
 export function eventOccursOnDate(event, date) {
-  const eventStart = parseDateTime(event.start_at);
-  const eventEnd = parseDateTime(event.end_at) ?? eventStart;
-
-  if (!eventStart) {
-    return false;
-  }
-
-  const dayStart = startOfDay(date);
-  const nextDayStart = addDays(dayStart, 1);
-  const safeEventEnd =
-    eventEnd <= eventStart
-      ? new Date(eventStart.getTime() + 30 * 60 * 1000)
-      : eventEnd;
-
-  return eventStart < nextDayStart && safeEventEnd > dayStart;
+  const interval = calendarInterval(event);
+  if (!interval) return false;
+  const bounds = dayBounds(date);
+  return interval.start < bounds.end && interval.end > bounds.start;
 }
 
 export function getEventDaySegment(event, date) {
-  const eventStart = parseDateTime(event.start_at);
-  const eventEnd = parseDateTime(event.end_at) ?? eventStart;
-  const dayStart = startOfDay(date);
-  const nextDayStart = addDays(dayStart, 1);
-  const safeEventEnd =
-    eventEnd <= eventStart
-      ? new Date(eventStart.getTime() + 30 * 60 * 1000)
-      : eventEnd;
-
+  const interval = calendarInterval(event);
+  const bounds = dayBounds(date);
   return {
-    continuesBefore: eventStart < dayStart,
-    continuesAfter: safeEventEnd > nextDayStart,
+    continuesBefore: interval.start < bounds.start,
+    continuesAfter: interval.end > bounds.end,
   };
 }
 
 export function getEventPositionForDay(event, date) {
-  const eventStart = parseDateTime(event.start_at);
-  const eventEnd = parseDateTime(event.end_at) ?? eventStart;
-  const dayStart = startOfDay(date);
-  const nextDayStart = addDays(dayStart, 1);
-  const visibleStart = eventStart < dayStart ? dayStart : eventStart;
-  const safeEventEnd =
-    eventEnd <= eventStart
-      ? new Date(eventStart.getTime() + 30 * 60 * 1000)
-      : eventEnd;
-  const visibleEnd = safeEventEnd > nextDayStart ? nextDayStart : safeEventEnd;
-  const startMinutes =
-    visibleStart.getHours() * 60 + visibleStart.getMinutes();
-  const endMinutes =
-    visibleEnd >= nextDayStart
-      ? 24 * 60
-      : visibleEnd.getHours() * 60 + visibleEnd.getMinutes();
+  const interval = calendarInterval(event);
+  const bounds = dayBounds(date);
+  const visibleStart = interval.start < bounds.start ? bounds.start : interval.start;
+  const visibleEnd = interval.end > bounds.end ? bounds.end : interval.end;
+  const minutes = (value) => Number(value.slice(11, 13)) * 60 + Number(value.slice(14, 16));
+  const startMinutes = minutes(visibleStart);
+  const endMinutes = visibleEnd === bounds.end ? 24 * 60 : minutes(visibleEnd);
 
   return {
     startMinutes,

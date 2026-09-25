@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from datetime import datetime, timedelta
 from time import perf_counter
 
@@ -283,10 +284,22 @@ def _search_direct_route(request: DirectRouteSearchRequest):
         constraint_at = constraint.get("at")
         if constraint_type not in {"arrival", "departure"}:
             raise HTTPException(status_code=400, detail="時間制約の種類が不正です")
+        if not isinstance(constraint_at, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}", constraint_at):
+            raise HTTPException(status_code=400, detail="時間制約の日時が不正です")
         try:
             desired_arrival_at = datetime.strptime(constraint_at, "%Y-%m-%dT%H:%M")
         except (TypeError, ValueError) as error:
             raise HTTPException(status_code=400, detail="時間制約の日時が不正です") from error
+        latest_arrival_at = constraint.get("latest_arrival_at")
+        if latest_arrival_at is not None:
+            if not isinstance(latest_arrival_at, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}", latest_arrival_at):
+                raise HTTPException(status_code=400, detail="到着上限の日時が不正です")
+            try:
+                latest_arrival = datetime.strptime(latest_arrival_at, "%Y-%m-%dT%H:%M")
+            except (TypeError, ValueError) as error:
+                raise HTTPException(status_code=400, detail="到着上限の日時が不正です") from error
+            if latest_arrival < desired_arrival_at and constraint_type == "departure":
+                raise HTTPException(status_code=400, detail="到着上限は出発時刻以降にしてください")
         destination_types = (
             request.destination.types
             if request.destination is not None
@@ -315,27 +328,20 @@ def _search_direct_route(request: DirectRouteSearchRequest):
                 candidates = [
                     candidate
                     for candidate in candidates
-                    if not candidate.get("arrival_at")
-                    or candidate["arrival_at"] <= constraint_at
+                    if candidate.get("arrival_at") and candidate["arrival_at"] <= constraint_at
                 ]
             else:
                 candidates = [
                     candidate
                     for candidate in candidates
-                    if not candidate.get("departure_at")
-                    or candidate["departure_at"] >= constraint_at
+                    if candidate.get("departure_at") and candidate["departure_at"] >= constraint_at
                 ]
             latest_arrival_at = constraint.get("latest_arrival_at")
             if latest_arrival_at:
-                try:
-                    datetime.strptime(latest_arrival_at, "%Y-%m-%dT%H:%M")
-                except (TypeError, ValueError) as error:
-                    raise HTTPException(status_code=400, detail="到着上限の日時が不正です") from error
                 candidates = [
                     candidate
                     for candidate in candidates
-                    if not candidate.get("arrival_at")
-                    or candidate["arrival_at"] <= latest_arrival_at
+                    if candidate.get("arrival_at") and candidate["arrival_at"] <= latest_arrival_at
                 ]
             result["candidates"] = candidates
             if not result["candidates"]:

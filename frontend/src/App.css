@@ -1522,6 +1522,13 @@
   margin: 0;
 }
 
+.journey-builder-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .journey-builder-route-actions,
 .journey-builder-candidates {
   display: grid;
@@ -1568,14 +1575,48 @@
 .journey-fixed-card {
   display: grid;
   gap: 4px;
+  margin-left: 29px;
   padding: 14px;
   border-left: 3px solid #64748b;
   background: #f8fafc;
 }
 
 .journey-detail-timeline {
+  position: relative;
   display: grid;
-  gap: 12px;
+  gap: 0;
+}
+
+.journey-detail-timeline::before {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 16px;
+  width: 3px;
+  background: #9bb1e3;
+  content: "";
+}
+
+.journey-detail-section {
+  position: relative;
+  padding: 6px 0;
+}
+
+.journey-fixed-card::before {
+  position: absolute;
+  left: 11px;
+  width: 12px;
+  height: 12px;
+  border: 3px solid #64748b;
+  border-radius: 50%;
+  background: white;
+  content: "";
+}
+
+.journey-wait-time {
+  margin: 2px 0 8px 29px;
+  color: #64748b;
+  font-size: 0.8rem;
 }
 
 .add-choice-actions {
