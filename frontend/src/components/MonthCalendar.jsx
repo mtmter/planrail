@@ -124,7 +124,7 @@ function MonthCalendar({
 
                       return (
                         <div
-                          className={`month-event${connectsFromPreviousDay ? " continues-before" : ""}${connectsToNextDay ? " continues-after" : ""}`}
+                          className={`month-event${event.itemType === "journey" ? " is-journey" : ""}${connectsFromPreviousDay ? " continues-before" : ""}${connectsToNextDay ? " continues-after" : ""}`}
                           title={event.title}
                           key={`event-${event.id}`}
                           role="button"
@@ -222,7 +222,7 @@ function MonthCalendar({
                 return (
                   <button
                     type="button"
-                    className="month-events-popover-event"
+                    className={`month-events-popover-event${event.itemType === "journey" ? " is-journey" : ""}`}
                     key={`popup-event-${event.id}`}
                     title={event.title}
                     onClick={() => {

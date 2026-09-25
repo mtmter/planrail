@@ -12,7 +12,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { serializeTravelPlan } from "./travelPlanSerializer";
+import { serializeJourney } from "./journeySerializer";
 
 function userCollection(uid, collectionName) {
   return collection(db, "users", uid, collectionName);
@@ -35,12 +35,13 @@ async function getCollectionData(uid, collectionName) {
 }
 
 export async function loadScheduleData(uid) {
-  const [events, preparations] = await Promise.all([
+  const [events, preparations, journeys] = await Promise.all([
     getCollectionData(uid, "events"),
     getCollectionData(uid, "preparations"),
+    getCollectionData(uid, "journeys"),
   ]);
 
-  return { events, preparations };
+  return { events, preparations, journeys };
 }
 
 export async function createEvent(uid, eventData) {
@@ -68,7 +69,7 @@ export async function deleteEvent(uid, eventId) {
   preparationsSnapshot.docs.forEach((preparationDocument) => {
     batch.delete(preparationDocument.ref);
   });
-  batch.delete(userDocument(uid, "travelPlans", eventId));
+  batch.delete(userDocument(uid, "journeys", `event-${eventId}`));
   batch.delete(userDocument(uid, "events", eventId));
   await batch.commit();
 }
@@ -114,21 +115,17 @@ export async function deletePreparation(uid, eventId, preparationId) {
   await deleteDoc(preparationDocument);
 }
 
-export async function getTravelPlan(uid, eventId) {
-  const snapshot = await getDoc(
-    userDocument(uid, "travelPlans", eventId),
-  );
-  if (!snapshot.exists()) {
-    return null;
-  }
-  return dataWithId(snapshot);
+export async function getJourney(uid, journeyId) {
+  const snapshot = await getDoc(userDocument(uid, "journeys", journeyId));
+  return snapshot.exists() ? dataWithId(snapshot) : null;
 }
 
-export async function saveTravelPlan(uid, eventId, route) {
-  const documentData = serializeTravelPlan(eventId, route);
-  await setDoc(
-    userDocument(uid, "travelPlans", eventId),
-    documentData,
-  );
-  return { id: String(eventId), ...documentData };
+export async function saveJourney(uid, journey) {
+  const documentId = journey.event_id ? `event-${journey.event_id}` : null;
+  const documentData = serializeJourney(journey);
+  const reference = documentId
+    ? userDocument(uid, "journeys", documentId)
+    : userDocument(uid, "journeys", `standalone-${doc(userCollection(uid, "journeys")).id}`);
+  await setDoc(reference, documentData);
+  return { id: reference.id, ...documentData };
 }

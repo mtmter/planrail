@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -18,24 +18,40 @@ FIXTURE_DESIRED_ARRIVAL_AT = datetime(
     12,
     tzinfo=JAPAN_TIMEZONE,
 )
+FIXTURE_DESIRED_DEPARTURE_AT = datetime(
+    2026,
+    8,
+    25,
+    8,
+    54,
+    tzinfo=JAPAN_TIMEZONE,
+)
 
 
 def get_route(
     _origin,
     _destination,
     arrival_at,
+    constraint_type="arrival",
     origin_display_name=None,
     destination_display_name=None,
     origin_place_types=None,
     destination_place_types=None,
 ):
-    """Transit形式のデモfixtureを到着希望日時に合わせて返す。"""
+    """Transit形式のデモfixtureを時間制約に合わせて返す。"""
     with FIXTURE_PATH.open(encoding="utf-8") as fixture_file:
         response_data = json.load(fixture_file)
 
-    requested_arrival_at = _as_japan_datetime(arrival_at)
+    requested_time = _as_japan_datetime(arrival_at)
+    if constraint_type not in {"arrival", "departure"}:
+        raise ValueError("経路検索の時間制約が不正です")
+    reference_time = (
+        FIXTURE_DESIRED_DEPARTURE_AT
+        if constraint_type == "departure"
+        else FIXTURE_DESIRED_ARRIVAL_AT
+    )
     time_difference_seconds = (
-        requested_arrival_at - FIXTURE_DESIRED_ARRIVAL_AT
+        requested_time - reference_time
     ).total_seconds()
     _shift_service_seconds(response_data, time_difference_seconds)
     return response_data
