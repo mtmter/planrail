@@ -78,7 +78,23 @@ function getPlatformLabel(fromPlatform, toPlatform) {
   return null;
 }
 
-function RouteDetails({ heading, route = {}, embedded = false }) {
+export function RoutePlace({ name, arrivalAt, departureAt, origin = false }) {
+  if (!hasValue(name)) return null;
+  const arrivalTime = getFormattedTime(arrivalAt);
+  const departureTime = getFormattedTime(departureAt);
+  return <div className={`route-place${origin ? " route-origin" : ""}`}>
+    <span aria-hidden="true" />
+    <div className="route-place-info">
+      <span className="route-place-times">
+        {arrivalTime && <span>着 <time dateTime={arrivalAt}>{arrivalTime}</time></span>}
+        {departureTime && <span>発 <time dateTime={departureAt}>{departureTime}</time></span>}
+      </span>
+      <strong>{name}</strong>
+    </div>
+  </div>;
+}
+
+function RouteDetails({ heading, route = {}, embedded = false, nextDepartureAt = null }) {
   const segments = Array.isArray(route?.segments)
     ? route.segments.filter(
         (segment) => segment && typeof segment === "object",
@@ -96,12 +112,7 @@ function RouteDetails({ heading, route = {}, embedded = false }) {
     departureTime || arrivalTime || hasValue(route?.duration_minutes);
 
   const timeline = <>
-        {!embedded && hasValue(origin) && (
-          <div className="route-place route-origin">
-            <span aria-hidden="true" />
-            <strong>{origin}</strong>
-          </div>
-        )}
+        {!embedded && <RoutePlace name={origin} departureAt={route.departure_at || firstSegment?.departure_at} origin />}
 
         {segments.map((segment, index) => {
           const transportLabel = getTransportLabel(segment.type);
@@ -127,7 +138,8 @@ function RouteDetails({ heading, route = {}, embedded = false }) {
                 {segment.headway_based != null && <span>{segment.headway_based ? "運行間隔方式" : "時刻表ベース"}</span>}
               </div>
             </div>
-            {hasValue(segment.to) && <div className="route-place"><span aria-hidden="true" /><strong>{segment.to}</strong></div>}
+            <RoutePlace name={segment.to} arrivalAt={segment.arrival_at}
+              departureAt={segments[index + 1]?.departure_at || (index === segments.length - 1 ? nextDepartureAt : null)} />
           </div>;
         })}
 
@@ -135,7 +147,7 @@ function RouteDetails({ heading, route = {}, embedded = false }) {
           <div className="route-segment-group"><div className="route-segment"><span className="route-segment-line" aria-hidden="true" />
             <div className="route-segment-details"><strong>{getTransportLabel(route.transport_mode) || route.transport_mode}</strong>
               {getPlaceLabel(origin, destination) && <span>{getPlaceLabel(origin, destination)}</span>}</div></div>
-            {hasValue(destination) && <div className="route-place"><span aria-hidden="true" /><strong>{destination}</strong></div>}
+            <RoutePlace name={destination} arrivalAt={route.arrival_at} departureAt={nextDepartureAt} />
           </div>
         )}
         {!embedded && hasValue(destination) && <p className="route-destination-label">目的地：{destination}</p>}
