@@ -1558,8 +1558,8 @@
   margin-bottom: 12px;
 }
 
-.journey-result-times {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.journey-result-heading h3 {
+  overflow-wrap: anywhere;
 }
 
 .journey-timeline-part {
