@@ -100,7 +100,6 @@ export function RouteTimeSummary({
   durationMinutes,
   heading,
   className = "",
-  timesClassName = "",
   ariaLabel = "経路全体の出発時刻、到着時刻、所要時間",
 }) {
   const departureTime = getFormattedTime(departureAt);
@@ -113,7 +112,7 @@ export function RouteTimeSummary({
       {heading && <h3>{heading}</h3>}
       {hasSummary && (
         <div
-          className={`route-result-times${timesClassName ? ` ${timesClassName}` : ""}`}
+          className="route-result-times"
           aria-label={ariaLabel}
         >
           {departureTime && <div>

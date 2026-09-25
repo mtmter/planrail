@@ -30,13 +30,16 @@ export default function JourneyTimeline({ sections, onCandidateChange, candidate
   if (!sections?.length) return null;
   const departureAt = sectionDepartureAt(sections[0]);
   const arrivalAt = sectionArrivalAt(sections[sections.length - 1]);
+  const originName = sections[0].origin?.name;
+  const destinationName = sections[sections.length - 1].destination?.name;
   return <div className="route-timeline journey-timeline" aria-label="移動予定の行程">
     {departureAt && arrivalAt && <RouteTimeSummary
       departureAt={departureAt}
       arrivalAt={arrivalAt}
+      durationMinutes={minutesBetween(departureAt, arrivalAt)}
+      heading={originName && destinationName ? `${originName} → ${destinationName}` : null}
       className="journey-result-heading"
-      timesClassName="journey-result-times"
-      ariaLabel="移動予定全体の出発時刻と到着時刻"
+      ariaLabel="移動予定全体の出発時刻、到着時刻、所要時間"
     />}
     <RoutePlace name={sections[0].origin?.name} departureAt={departureAt} origin />
     {sections.map((section, index) => {
