@@ -1552,16 +1552,6 @@
   display: grid;
 }
 
-.journey-timeline::before {
-  position: absolute;
-  top: 12px;
-  bottom: 12px;
-  left: 16px;
-  width: 3px;
-  background: #9bb1e3;
-  content: "";
-}
-
 .journey-timeline-part {
   display: contents;
 }
