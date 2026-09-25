@@ -2,10 +2,16 @@ function nullableText(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-const DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+const DATE_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
 
-function isDateTime(value) {
-  return typeof value === "string" && DATE_TIME_PATTERN.test(value);
+export function isJourneyDateTime(value) {
+  if (typeof value !== "string") return false;
+  const match = DATE_TIME_PATTERN.exec(value);
+  if (!match) return false;
+  const [, year, month, day, hour, minute] = match.map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() + 1 === month &&
+    date.getUTCDate() === day && hour < 24 && minute < 60;
 }
 
 function placesConnect(firstPlace, secondPlace) {
@@ -23,6 +29,43 @@ function placesConnect(firstPlace, secondPlace) {
   return false;
 }
 
+function nonnegativeInteger(value) {
+  return Number.isInteger(value) && value >= 0;
+}
+
+function validPlace(place) {
+  return place && typeof place.name === "string" && place.name.trim();
+}
+
+function validateStoredRoute(route) {
+  if (!route || !nullableText(route.origin) || !nullableText(route.destination) ||
+      !isJourneyDateTime(route.departure_at) || !isJourneyDateTime(route.arrival_at) ||
+      route.arrival_at < route.departure_at || !nonnegativeInteger(route.duration_minutes) ||
+      !nullableText(route.transport_mode) || !Array.isArray(route.segments)) {
+    throw new Error("経路の必須情報が不正です");
+  }
+  for (const value of [route.transfer_count, route.walk_minutes, route.wait_minutes]) {
+    if (value !== null && value !== undefined && !nonnegativeInteger(value)) {
+      throw new Error("経路の比較情報が不正です");
+    }
+  }
+  if (route.fare && (
+    (route.fare.currency != null && typeof route.fare.currency !== "string") ||
+    [route.fare.ticket, route.fare.ic].some((value) => value != null && (!Number.isFinite(value) || value < 0))
+  )) {
+    throw new Error("運賃情報が不正です");
+  }
+  for (const segment of route.segments) {
+    if (!segment || !nullableText(segment.type) || !nullableText(segment.from) ||
+        !nullableText(segment.to) || !isJourneyDateTime(segment.departure_at) ||
+        !isJourneyDateTime(segment.arrival_at) ||
+        segment.arrival_at < segment.departure_at ||
+        !nonnegativeInteger(segment.duration_minutes)) {
+      throw new Error("経路のsegment情報が不正です");
+    }
+  }
+}
+
 export function serializePlacePoint(place = {}) {
   return {
     name: nullableText(place.name) || "",
@@ -30,7 +73,7 @@ export function serializePlacePoint(place = {}) {
     place_id: nullableText(place.place_id),
     lat: Number.isFinite(place.lat) ? place.lat : null,
     lng: Number.isFinite(place.lng) ? place.lng : null,
-    types: Array.isArray(place.types) ? place.types.filter(Boolean) : [],
+    types: Array.isArray(place.types) ? place.types.filter((type) => typeof type === "string" && type.trim()) : [],
   };
 }
 
@@ -81,27 +124,30 @@ export function validateJourney(journey) {
   if (!journey || !Array.isArray(journey.sections) || !journey.sections.length) {
     throw new Error("移動区間を1件以上追加してください");
   }
-  if (!isDateTime(journey.departure_at) || !isDateTime(journey.arrival_at)) {
+  if (!isJourneyDateTime(journey.departure_at) || !isJourneyDateTime(journey.arrival_at)) {
     throw new Error("Journeyの発着日時が不正です");
   }
   if (journey.arrival_at < journey.departure_at) {
     throw new Error("Journeyの到着日時は出発日時以降にしてください");
   }
   if (journey.target) {
-    if (!journey.target.destination || !isDateTime(journey.target.arrival_deadline)) {
+    if (!validPlace(journey.target.destination) || !isJourneyDateTime(journey.target.arrival_deadline)) {
       throw new Error("Journeyの到着先または期限が不正です");
     }
     if (journey.target.arrival_deadline < journey.arrival_at) {
       throw new Error("Journeyは到着期限までに到着する必要があります");
     }
   }
+  if (!journey.target && journey.sections.some((section) => section?.kind === "ROUTE")) {
+    throw new Error("ROUTEを含むJourneyには目的地と到着期限が必要です");
+  }
 
   let previousSection = null;
-  journey.sections.forEach((section) => {
+  journey.sections.forEach((section, index) => {
     if (!section || !["ROUTE", "FIXED"].includes(section.kind)) {
       throw new Error("移動区間の種類が不正です");
     }
-    if (!section.origin?.name || !section.destination?.name) {
+    if (!validPlace(section.origin) || !validPlace(section.destination)) {
       throw new Error("移動区間の発着地点を入力してください");
     }
     const departureAt = section.kind === "ROUTE"
@@ -110,7 +156,7 @@ export function validateJourney(journey) {
     const arrivalAt = section.kind === "ROUTE"
       ? section.route?.arrival_at
       : section.arrival_at;
-    if (!isDateTime(departureAt) || !isDateTime(arrivalAt) || arrivalAt < departureAt) {
+    if (!isJourneyDateTime(departureAt) || !isJourneyDateTime(arrivalAt) || arrivalAt < departureAt) {
       throw new Error("移動区間の発着日時が不正です");
     }
     if (section.kind === "ROUTE") {
@@ -123,24 +169,37 @@ export function validateJourney(journey) {
       ) {
         throw new Error("経路区間の発着地点と検索結果を確定してください");
       }
+      validateStoredRoute(section.route);
     }
     if (previousSection) {
       const previousArrival = previousSection.kind === "ROUTE"
         ? previousSection.route?.arrival_at
         : previousSection.arrival_at;
-      if (departureAt < previousArrival || !placesConnect(previousSection.destination, section.origin)) {
+      const fixedNamesConnect = previousSection.kind === "FIXED" && section.kind === "FIXED" &&
+        !previousSection.destination.place_id && !section.origin.place_id &&
+        !Number.isFinite(previousSection.destination.lat) && !Number.isFinite(section.origin.lat) &&
+        previousSection.destination.name.trim() === section.origin.name.trim();
+      if (departureAt < previousArrival ||
+          (!placesConnect(previousSection.destination, section.origin) && !fixedNamesConnect)) {
         throw new Error("隣接する移動区間の地点または時刻が接続していません");
       }
+    }
+    if (index === 0 && departureAt !== journey.departure_at) {
+      throw new Error("Journeyの出発日時が先頭区間と一致しません");
     }
     previousSection = section;
   });
 
   const lastSection = journey.sections[journey.sections.length - 1];
+  const lastArrival = lastSection.kind === "ROUTE" ? lastSection.route.arrival_at : lastSection.arrival_at;
+  if (lastArrival !== journey.arrival_at) {
+    throw new Error("Journeyの到着日時が最終区間と一致しません");
+  }
   if (journey.target) {
     if (!placesConnect(lastSection.destination, journey.target.destination)) {
       throw new Error("最後の移動区間を目的地に接続してください");
     }
-    if (lastSection.kind === "FIXED" && journey.event_id) {
+    if (journey.event_id && journey.sections.every((section) => section.kind === "FIXED")) {
       if (
         !lastSection.destination.place_id ||
         lastSection.destination.place_id !== journey.target.destination.place_id
@@ -155,6 +214,9 @@ export function validateJourney(journey) {
 }
 
 export function serializeJourney(journey) {
+  if (!journey || !Array.isArray(journey.sections)) {
+    throw new Error("移動区間を1件以上追加してください");
+  }
   const serialized = {
     event_id: journey.event_id ? String(journey.event_id) : null,
     target: journey.target
@@ -200,21 +262,8 @@ export function journeyDisplayName(journey, event = null) {
 }
 
 export function journeyMatchesDate(journey, date) {
-  const parseWallClock = (value) => {
-    if (!isDateTime(value)) return null;
-    const [datePart, timePart] = value.split("T");
-    const [year, month, day] = datePart.split("-").map(Number);
-    const [hour, minute] = timePart.split(":").map(Number);
-    return new Date(year, month - 1, day, hour, minute);
-  };
-  const start = parseWallClock(journey.departure_at);
-  const end = parseWallClock(journey.arrival_at);
-  if (!start || !end) return false;
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return false;
-  }
-  const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const nextDay = new Date(dayStart);
-  nextDay.setDate(nextDay.getDate() + 1);
-  return start < nextDay && end > dayStart;
+  if (!isJourneyDateTime(journey.departure_at) || !isJourneyDateTime(journey.arrival_at)) return false;
+  const day = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const next = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate() + 1)).toISOString().slice(0, 10);
+  return journey.departure_at < `${next}T00:00` && journey.arrival_at > `${day}T00:00`;
 }

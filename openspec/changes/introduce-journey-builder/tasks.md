@@ -7,8 +7,8 @@
 
 - [x] 2.1 PlacePoint、JourneySection、Journeyのシリアライズ/検証を追加する。FIXEDのみ、複数section、日跨ぎ、未設定gap・逆転時刻と、Event-linked FIXEDのみのplace_id/到着期限条件を確認する。
 - [x] 2.2 `journeys` の読み込み・作成/置換・必要な削除をFirestore serviceへ追加する。Event-linkedは決定的ID、Standaloneは別接頭辞のIDとし、同一Eventの再保存で二重作成されないことを確認する。
-- [x] 2.3 現行Firestore rulesが `journeys` に適用されることと異なるuidへの拒否をFirestore Emulator等で確認する。正規UIで決定的IDを使い同一Eventへ二件目を作らないことを検証する。
-- [x] 2.4 Event削除処理へlinked Journeyを含め、準備項目とともに削除し、Standalone Journeyを残す。batch上限と失敗時の整合性を確認する。
+- [ ] 2.3 現行Firestore rulesが `journeys` に適用されることと異なるuidへの拒否をFirestore Emulator等で確認する。正規UIで決定的IDを使い同一Eventへ二件目を作らないことを検証する。（Emulatorでの確認が未実施）
+- [ ] 2.4 Event削除処理へlinked Journeyを含め、準備項目とともに削除し、Standalone Journeyを残す。batch上限と失敗時の整合性を確認する。（上限超過時は削除前に拒否する実装。Firestoreでの失敗時確認が未実施）
 - [x] 2.5 旧 `travelPlans` の読み書きとEvent削除連携をアプリから除き、既存文書があってもEvent詳細・カレンダーへ表示されないことを確認する。既存文書の削除はアプリ実装と分けた運用作業として記録する。
 
 ## 3. Journey section検索API
@@ -36,4 +36,4 @@
 
 - [x] 6.1 `loadScheduleData` と画面stateにJourneyを追加し、月表示でEvent/Journeyを時刻順に表示して上限・残件数へ両方を含める。Journey選択時にJourney詳細が開くことを確認する。
 - [x] 6.2 週・日表示でJourneyを独立ブロックとして表示し、Eventと重なる場合も各ブロックを選択可能にする。夜行バスなど日跨ぎを両日で正しくクリップすることを確認する。
-- [x] 6.3 backend unittest、frontendの既存serializer/APIテスト、`npm run lint`、`npm run build` を実行する。現行frontendに自動UIテストスクリプトがないため、Builder、旧travelPlan非表示、カレンダー3表示、Event削除の手動受け入れ確認を行い、未実施範囲を報告する。
+- [ ] 6.3 backend unittest、frontendの既存serializer/APIテスト、`npm run lint`、`npm run build` を実行する。現行frontendに自動UIテストスクリプトがないため、Builder、旧travelPlan非表示、カレンダー3表示、Event削除の手動受け入れ確認を行い、未実施範囲を報告する。（自動検証は完了。ブラウザでの手動確認が未実施）
