@@ -55,7 +55,6 @@ export default function JourneyTimeline({ sections, onCandidateChange, candidate
         {wait > 0 && <div className="route-segment journey-wait"><span className="route-segment-line" aria-hidden="true" /><span>待機 {wait}分</span></div>}
         {section.kind === "ROUTE" ? section.route ? <>
           <RouteDetails route={section.route} embedded nextDepartureAt={nextDepartureAt} />
-          {candidateMetrics(section.route) && <p className="journey-route-metrics">{candidateMetrics(section.route)}</p>}
           {(section.warnings || []).map((warning, at) => <p className="route-search-guidance" key={at}>{warning}</p>)}
           {onCandidateChange && section.candidates?.length > 0 && <details className="journey-candidate-picker">
             <summary>別の候補を見る</summary>
