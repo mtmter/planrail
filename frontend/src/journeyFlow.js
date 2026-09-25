@@ -63,15 +63,20 @@ export function buildPlan(input, target = null) {
   let from = input.origin.point;
   let lower = null;
   for (const item of [...fixed, null]) {
-    const to = item?.origin.point || destination;
+    const to = item ? item.origin.point : destination;
     const upper = item?.departure_at || deadline;
     if (item) {
       if (!item.origin.text.trim() || !item.destination.text.trim()) throw new Error("固定移動の乗降地点を入力してください");
       if (!isJourneyDateTime(item.departure_at) || !isJourneyDateTime(item.arrival_at) || item.arrival_at < item.departure_at) throw new Error("固定移動の発着日時を確認してください");
     }
     if (lower && lower > upper) throw new Error("固定移動の時刻が前後しています");
-    if (!samePlace(from, to)) {
-      if (!validPoint(from) || !validPoint(to)) throw new Error("公共交通で移動する地点をPlaces候補から選択してください");
+    const fixedOnlyEventTarget = target && !item && fixed.length > 0 && sections.every((section) => section.kind === "FIXED");
+    const connected = fixedOnlyEventTarget
+      ? Boolean(from?.place_id && from.place_id === to?.place_id)
+      : samePlace(from, to);
+    if (!connected) {
+      if (!validPoint(from)) throw new Error("固定移動の降車地点をPlaces候補から選択してください");
+      if (!validPoint(to)) throw new Error("固定移動の乗車地点をPlaces候補から選択してください");
       sections.push({ kind: "ROUTE", key: `route-${sections.length}`, origin: from, destination: to,
         earliestDeparture: lower, latestArrival: upper,
         constraint: lower ? { type: "departure", at: lower, latest_arrival_at: upper } : { type: "arrival", at: upper },

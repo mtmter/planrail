@@ -18,7 +18,7 @@ function candidateMetrics(route) {
   ].filter(Boolean).join("・");
 }
 
-export default function JourneyTimeline({ sections, onCandidateChange }) {
+export default function JourneyTimeline({ sections, onCandidateChange, candidateDisabled = false }) {
   if (!sections?.length) return null;
   return <div className="route-timeline journey-timeline" aria-label="移動予定の行程">
     <div className="route-place route-origin"><span aria-hidden="true" /><strong>{sections[0].origin?.name}</strong></div>
@@ -36,7 +36,7 @@ export default function JourneyTimeline({ sections, onCandidateChange }) {
           {onCandidateChange && section.candidates?.length > 0 && <details className="journey-candidate-picker">
             <summary>別の候補を見る</summary>
             <div className="route-candidate-list" aria-label="経路候補">{section.candidates.map((candidate, at) =>
-              <button type="button" key={candidate.candidate_id} className={`route-candidate-card${section.route?.candidate_id === candidate.candidate_id ? " is-active" : ""}`}
+              <button type="button" key={candidate.candidate_id} disabled={candidateDisabled} className={`route-candidate-card${section.route?.candidate_id === candidate.candidate_id ? " is-active" : ""}`}
                 aria-pressed={section.route?.candidate_id === candidate.candidate_id} onClick={() => onCandidateChange(section.key, candidate.candidate_id)}>
                 <span className="route-candidate-heading"><strong>候補 {at + 1}</strong>{candidate.candidate_id === section.recommendedId && <span className="route-recommended-badge">おすすめ</span>}</span>
                 <span>{candidate.departure_at?.replace("T", " ")} → {candidate.arrival_at?.replace("T", " ")}</span>

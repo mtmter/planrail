@@ -122,8 +122,9 @@ export function JourneyBuilderContent({ event = null, journey = null, onSave, on
       <button className="primary-button" type="button" disabled>経路を検索中...</button>
     </div>}
     {phase === "preview" && result && <>
-      <JourneyTimeline sections={displaySections} onCandidateChange={result.hasCache ? (key, candidateId) =>
-        setResult((current) => ({ ...current, sections: selectCandidate(current.sections, key, candidateId) })) : null} />
+      <JourneyTimeline sections={displaySections} candidateDisabled={saving} onCandidateChange={result.hasCache ? (key, candidateId) => {
+        if (!saving) setResult((current) => ({ ...current, sections: selectCandidate(current.sections, key, candidateId) }));
+      } : null} />
       {dirty && <p className="route-search-guidance" role="status">条件が変わりました。経路を再検索してください。</p>}
       {hasFailures && <p className="route-search-guidance" role="status">検索できなかった地点間があります。条件を確認するか、全区間を再検索してください。</p>}
       <div className="modal-actions"><button className="secondary-button" type="button" disabled={saving} onClick={() => setPhase("input")}>条件を変更</button>

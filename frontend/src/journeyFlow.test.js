@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { requestRouteSearch } from "./routeSearchApi.js";
-import { addFixed, applyCandidates, buildPlan, createInput, initialSavedPreview, journeyForSave, searchAllGaps, searchFingerprint, selectCandidate, selectedPlace } from "./journeyFlow.js";
+import { addFixed, applyCandidates, buildPlan, createInput, initialSavedPreview, journeyForSave, searchAllGaps, searchFingerprint, selectCandidate, selectedPlace, typedPlace } from "./journeyFlow.js";
 
 const point = (name, id, n) => ({ name, address: `${name}住所`, place_id: id, lat: 33 + n, lng: 130 + n, types: ["establishment"] });
 const A = point("出発", "a", 1), B = point("乗車", "b", 2), C = point("降車", "c", 3);
@@ -45,6 +45,36 @@ test("fixed-only journey has no gaps and still validates before saving", () => {
   const sameCoordinates = { ...model, fixed: [{ ...model.fixed[0], origin: selectedPlace({ ...A, place_id: "another-origin" }), destination: selectedPlace({ ...F, place_id: "another-destination" }) }] };
   assert.deepEqual(buildPlan(sameCoordinates).map((section) => section.kind), ["FIXED"]);
   assert.equal(journeyForSave(sameCoordinates, buildPlan(sameCoordinates)).sections.length, 1);
+});
+
+test("name-only FIXED origin blocks the required incoming gap before search", () => {
+  const model = addFixed(input());
+  model.fixed[0] = { ...withFixed(model.fixed[0]), origin: typedPlace("博多駅") };
+  assert.throws(() => buildPlan(model), /固定移動の乗車地点をPlaces候補から選択/);
+});
+
+test("name-only FIXED destination blocks the required outgoing gap before search", () => {
+  const model = addFixed(input());
+  model.fixed[0] = { ...withFixed(model.fixed[0]), destination: typedPlace("降車地点") };
+  assert.throws(() => buildPlan(model), /固定移動の降車地点をPlaces候補から選択/);
+});
+
+test("Event-linked FIXED-only requires the final place_id to match its target", () => {
+  const model = addFixed(input());
+  model.fixed[0] = { ...model.fixed[0], origin: selectedPlace(A), destination: selectedPlace(F), departure_at: at("09"), arrival_at: at("10") };
+  const target = { destination: F, arrival_deadline: at("12") };
+  const connected = buildPlan(model, target);
+  assert.deepEqual(connected.map((section) => section.kind), ["FIXED"]);
+  assert.equal(journeyForSave(model, connected, target, "event-1").sections.length, 1);
+
+  for (const place_id of ["other-place", null]) {
+    const changed = { ...model, fixed: [{ ...model.fixed[0], destination: selectedPlace({ ...F, place_id }) }] };
+    const plan = buildPlan(changed, target);
+    assert.deepEqual(plan.map((section) => section.kind), ["FIXED", "ROUTE"]);
+    assert.deepEqual(plan[1].origin, changed.fixed[0].destination.point);
+    assert.deepEqual(plan[1].destination, F);
+    assert.throws(() => journeyForSave(changed, plan, target, "event-1"), /検索/);
+  }
 });
 
 test("selected PlacePoint fields reach each route-search request without swapping endpoints", async () => {
