@@ -22,7 +22,7 @@ function PlaceAutocompleteInput({
   const [errorMessage, setErrorMessage] = useState(
     import.meta.env.VITE_GOOGLE_MAPS_API_KEY
       ? ""
-      : "Google Maps APIキーが未設定のため、文字入力で検索します。",
+      : "Google Maps APIキーが未設定のため、候補は表示されません。文字入力はできますが、経路検索には候補選択が必要です。",
   );
 
   useEffect(() => {
@@ -110,14 +110,14 @@ function PlaceAutocompleteInput({
             setErrorMessage("");
           } catch {
             setErrorMessage(
-              "場所の詳細を取得できませんでした。文字入力のまま検索できます。",
+              "場所の詳細を取得できませんでした。経路検索には候補を選び直してください。",
             );
           }
         }
 
         function handlePlacesError() {
           setErrorMessage(
-            "場所候補を取得できませんでした。文字入力のまま検索できます。",
+            "場所候補を取得できませんでした。文字入力はできますが、経路検索には候補選択が必要です。",
           );
         }
 
@@ -147,7 +147,7 @@ function PlaceAutocompleteInput({
         if (!isCancelled) {
           setStatus("fallback");
           setErrorMessage(
-            "場所候補を読み込めませんでした。文字入力のまま検索できます。",
+            "場所候補を読み込めませんでした。文字入力はできますが、経路検索には候補選択が必要です。",
           );
         }
       }

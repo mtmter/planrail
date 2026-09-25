@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { parseDateTime, toDateTimeInputValue } from "../dateUtils";
 import DateTimePicker from "./DateTimePicker";
-import PlaceAutocompleteInput from "./PlaceAutocompleteInput";
+import EventPlaceField from "./EventPlaceField";
 
 function AddEventModal({ initialValues, onClose, onSubmit }) {
   const [title, setTitle] = useState("");
@@ -9,7 +9,6 @@ function AddEventModal({ initialValues, onClose, onSubmit }) {
   const [eventEndAt, setEventEndAt] = useState(initialValues.eventEndAt);
   const [description, setDescription] = useState("");
   const [locationName, setLocationName] = useState("");
-  const [destination, setDestination] = useState("");
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [arrivalBufferMinutes, setArrivalBufferMinutes] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -68,8 +67,8 @@ function AddEventModal({ initialValues, onClose, onSubmit }) {
         start_at: eventStartAt,
         end_at: eventEndAt,
         description,
-        location_name: locationName.trim() || null,
-        destination: destination.trim() || null,
+        location_name: (selectedPlace?.name || locationName).trim() || null,
+        destination: selectedPlace?.address || null,
         destination_place_id: selectedPlace?.place_id || null,
         destination_lat: selectedPlace?.lat ?? null,
         destination_lng: selectedPlace?.lng ?? null,
@@ -161,44 +160,22 @@ function AddEventModal({ initialValues, onClose, onSubmit }) {
             />
           </div>
 
-          <div className="modal-form-field">
-            <label htmlFor="event-location-name">
-              場所名 <span>任意</span>
-            </label>
-            <PlaceAutocompleteInput
-              id="event-location-name"
-              value={locationName}
-              placeholder="例：Garraway F"
-              disabled={isSubmitting}
-              onChange={(nextLocationName) => {
-                setLocationName(nextLocationName);
-                setSelectedPlace(null);
-              }}
-              onPlaceSelect={(place) => {
-                setSelectedPlace(place);
-                if (place) {
-                  setLocationName(place.name);
-                  setDestination(place.address);
-                }
-              }}
-            />
-          </div>
-
-          <div className="modal-form-field">
-            <label htmlFor="event-destination">
-              目的地 <span>任意</span>
-            </label>
-            <input
-              id="event-destination"
-              type="text"
-              value={destination}
-              placeholder="住所・駅名・施設名"
-              onChange={(event) => {
-                setDestination(event.target.value);
-                setSelectedPlace(null);
-              }}
-            />
-          </div>
+          <EventPlaceField
+            id="event-location"
+            value={locationName}
+            selectedPlace={selectedPlace}
+            disabled={isSubmitting}
+            onChange={(nextLocationName) => {
+              setLocationName(nextLocationName);
+              setSelectedPlace(null);
+            }}
+            onPlaceSelect={(place) => {
+              setSelectedPlace(place);
+              if (place) {
+                setLocationName(place.name);
+              }
+            }}
+          />
 
           <div className="modal-form-field">
             <label htmlFor="event-arrival-buffer-minutes">

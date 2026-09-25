@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { WEEKDAY_NAMES, parseDateTime } from "../dateUtils";
 import DateTimePicker from "./DateTimePicker";
-import PlaceAutocompleteInput from "./PlaceAutocompleteInput";
+import EventPlaceField from "./EventPlaceField";
 import PreparationChecklist from "./PreparationChecklist";
 import JourneyBuilderModal from "./JourneyBuilderModal";
 import JourneyDetails from "./JourneyDetails";
@@ -46,8 +46,7 @@ function placesMatch(firstPlace, secondPlace) {
 
 function getSavedPlace(event) {
   const hasPlaceDetails =
-    Boolean(event.destination_place_id) ||
-    hasCoordinateValue(event.destination_lat) ||
+    hasCoordinateValue(event.destination_lat) &&
     hasCoordinateValue(event.destination_lng);
 
   if (!hasPlaceDetails) {
@@ -112,9 +111,8 @@ function EventDetailsModal({
   const [endAt, setEndAt] = useState(event.end_at ?? "");
   const [description, setDescription] = useState(event.description ?? "");
   const [locationName, setLocationName] = useState(
-    event.location_name ?? "",
+    event.location_name || event.destination || "",
   );
-  const [destination, setDestination] = useState(event.destination ?? "");
   const [selectedPlace, setSelectedPlace] = useState(() =>
     getSavedPlace(event),
   );
@@ -198,8 +196,7 @@ function EventDetailsModal({
     setStartAt(event.start_at ?? "");
     setEndAt(event.end_at ?? "");
     setDescription(event.description ?? "");
-    setLocationName(event.location_name ?? "");
-    setDestination(event.destination ?? "");
+    setLocationName(event.location_name || event.destination || "");
     setSelectedPlace(getSavedPlace(event));
     setArrivalBufferMinutes(
       event.arrival_buffer_minutes?.toString() ?? "",
@@ -252,8 +249,8 @@ function EventDetailsModal({
         start_at: startAt,
         end_at: endAt,
         description,
-        location_name: locationName.trim() || null,
-        destination: destination.trim() || null,
+        location_name: (selectedPlace?.name || locationName).trim() || null,
+        destination: selectedPlace?.address || null,
         destination_place_id: selectedPlace?.place_id || null,
         destination_lat: selectedPlace?.lat ?? null,
         destination_lng: selectedPlace?.lng ?? null,
@@ -379,43 +376,22 @@ function EventDetailsModal({
               />
             </div>
 
-            <div className="modal-form-field">
-              <label htmlFor="edit-event-location-name">
-                場所名 <span>任意</span>
-              </label>
-              <PlaceAutocompleteInput
-                id="edit-event-location-name"
-                value={locationName}
-                placeholder="例：Garraway F"
-                disabled={isBusy}
-                onChange={(nextLocationName) => {
-                  setLocationName(nextLocationName);
-                  setSelectedPlace(null);
-                }}
-                onPlaceSelect={(place) => {
-                  setSelectedPlace(place);
-                  if (place) {
-                    setLocationName(place.name);
-                    setDestination(place.address);
-                  }
-                }}
-              />
-            </div>
-
-            <div className="modal-form-field">
-              <label htmlFor="edit-event-destination">
-                目的地 <span>任意</span>
-              </label>
-              <input
-                id="edit-event-destination"
-                type="text"
-                value={destination}
-                onChange={(inputEvent) => {
-                  setDestination(inputEvent.target.value);
-                  setSelectedPlace(null);
-                }}
-              />
-            </div>
+            <EventPlaceField
+              id="edit-event-location"
+              value={locationName}
+              selectedPlace={selectedPlace}
+              disabled={isBusy}
+              onChange={(nextLocationName) => {
+                setLocationName(nextLocationName);
+                setSelectedPlace(null);
+              }}
+              onPlaceSelect={(place) => {
+                setSelectedPlace(place);
+                if (place) {
+                  setLocationName(place.name);
+                }
+              }}
+            />
 
             <div className="modal-form-field">
               <label htmlFor="edit-event-arrival-buffer">
