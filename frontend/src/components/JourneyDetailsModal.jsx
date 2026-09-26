@@ -1,36 +1,7 @@
 import { useState } from "react";
 import JourneyDetails from "./JourneyDetails";
-import { getEventArrivalDeadline } from "../eventJourneyTarget";
+import { getEventArrivalDeadline, getEventDestination, placesMatch } from "../eventJourneyTarget";
 import { journeyDisplayName } from "../journeySerializer";
-
-function placesMatch(firstPlace, secondPlace) {
-  if (!firstPlace || !secondPlace) return firstPlace === secondPlace;
-  if (firstPlace.place_id || secondPlace.place_id) {
-    return firstPlace.place_id === secondPlace.place_id;
-  }
-  return (
-    firstPlace.lat === secondPlace.lat &&
-    firstPlace.lng === secondPlace.lng &&
-    firstPlace.address === secondPlace.address
-  );
-}
-
-function eventPlace(event) {
-  if (!event) return null;
-  if (
-    !event.destination_place_id &&
-    (event.destination_lat === null || event.destination_lat === undefined) &&
-    (event.destination_lng === null || event.destination_lng === undefined)
-  ) {
-    return null;
-  }
-  return {
-    place_id: event.destination_place_id || null,
-    lat: event.destination_lat ?? null,
-    lng: event.destination_lng ?? null,
-    address: event.destination || null,
-  };
-}
 
 function JourneyDetailsModal({ journey, event = null, onClose, onEdit, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -38,7 +9,7 @@ function JourneyDetailsModal({ journey, event = null, onClose, onEdit, onDelete 
   const [error, setError] = useState("");
   const needsReplan = Boolean(
     event &&
-      (!placesMatch(journey.target?.destination, eventPlace(event)) ||
+      (!placesMatch(journey.target?.destination, getEventDestination(event)) ||
         journey.target?.arrival_deadline !== getEventArrivalDeadline(event)),
   );
   return (

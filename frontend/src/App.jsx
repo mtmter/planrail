@@ -5,6 +5,7 @@ import AddChoiceModal from "./components/AddChoiceModal";
 import AccountMenu from "./components/AccountMenu";
 import CalendarToolbar from "./components/CalendarToolbar";
 import DayCalendar from "./components/DayCalendar";
+import TimelineView from "./components/TimelineView";
 import EventDetailsModal from "./components/EventDetailsModal";
 import JourneyBuilderModal from "./components/JourneyBuilderModal";
 import JourneyDetailsModal from "./components/JourneyDetailsModal";
@@ -33,6 +34,7 @@ import {
   formatMonthTitle,
   formatWeekTitle,
   getWeekDates,
+  getDateKey,
   isSameDay,
   parseDateTime,
   toDateTimeInputValue,
@@ -179,6 +181,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
   const [addChoiceValues, setAddChoiceValues] = useState(null);
   const [editingJourney, setEditingJourney] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [eventInitialMode, setEventInitialMode] = useState("details");
   const [selectedJourney, setSelectedJourney] = useState(null);
   const [isReminderSettingsOpen, setIsReminderSettingsOpen] = useState(false);
   const [preparationReminderMinutes, setPreparationReminderMinutes] = useState(
@@ -302,7 +305,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
       return createInitialValues(targetDate);
     }
 
-    if (activeView === "day") {
+    if (activeView === "day" || activeView === "timeline") {
       return createInitialValues(selectedDate);
     }
 
@@ -328,17 +331,25 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
   }
 
   async function handleUpdateEvent(eventId, eventData) {
-    const updatedEvent = await updateFirestoreEvent(
+    const result = await updateFirestoreEvent(
       user.uid,
       eventId,
       eventData,
     );
+    const updatedEvent = result.event;
     setEvents((currentEvents) =>
       currentEvents.map((currentEvent) =>
         currentEvent.id === updatedEvent.id ? updatedEvent : currentEvent,
       ),
     );
     setSelectedEvent(updatedEvent);
+    if (result.journeyInvalidated) {
+      const invalidatedId = `event-${eventId}`;
+      setJourneys((current) => current.filter((journey) => journey.id !== invalidatedId));
+      setSelectedJourney((current) => current?.id === invalidatedId ? null : current);
+      setEditingJourney((current) => current?.id === invalidatedId ? null : current);
+    }
+    return result;
   }
 
   async function handleDeleteEvent(eventId) {
@@ -445,6 +456,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     if (item.itemType === "journey") {
       setSelectedJourney(item);
     } else {
+      setEventInitialMode("details");
       setSelectedEvent(item);
     }
   }
@@ -482,7 +494,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
                 handleCalendarDateChange(addDays(selectedDate, 7))
               }
             />
-          ) : activeView === "day" ? (
+          ) : activeView === "day" || activeView === "timeline" ? (
             <CalendarToolbar
               title={formatDayTitle(selectedDate)}
               onPrevious={() =>
@@ -508,25 +520,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
             <button
               className={activeView === "week" ? "is-active" : ""}
               type="button"
-              onClick={() => {
-                if (activeView === "month") {
-                  const today = new Date();
-                  const isCurrentMonth =
-                    selectedDate.getFullYear() === today.getFullYear() &&
-                    selectedDate.getMonth() === today.getMonth();
-
-                  handleCalendarDateChange(
-                    isCurrentMonth
-                      ? today
-                      : new Date(
-                          selectedDate.getFullYear(),
-                          selectedDate.getMonth(),
-                          1,
-                        ),
-                  );
-                }
-                setActiveView("week");
-              }}
+              onClick={() => setActiveView("week")}
             >
               週
             </button>
@@ -536,6 +530,13 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
               onClick={() => setActiveView("day")}
             >
               日
+            </button>
+            <button
+              className={activeView === "timeline" ? "is-active" : ""}
+              type="button"
+              onClick={() => setActiveView("timeline")}
+            >
+              Timeline
             </button>
           </nav>
           <button
@@ -572,7 +573,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
         </div>
       )}
 
-      {!isLoading && (
+      {!isLoading && activeView !== "timeline" && (
         <div className="top-preparation-reminders">
           <PreparationReminderList
             reminders={preparationReminders}
@@ -594,12 +595,12 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
                 onDateSelect={handleCalendarDateChange}
                 onDisplayedMonthChange={setMiniCalendarMonth}
               />
-              <div className="sidebar-preparation-reminders">
+              {activeView !== "timeline" && <div className="sidebar-preparation-reminders">
                 <PreparationReminderList
                   reminders={preparationReminders}
                   onEventClick={setSelectedEvent}
                 />
-              </div>
+              </div>}
             </aside>
 
             <div className="calendar-main-panel">
@@ -617,12 +618,25 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
                   onEventClick={handleCalendarItemClick}
                   onTimeClick={handleWeekTimeClick}
                 />
-              ) : (
+              ) : activeView === "day" ? (
                 <DayCalendar
                   events={calendarItems}
                   selectedDate={selectedDate}
                   onEventClick={handleCalendarItemClick}
                   onTimeClick={handleWeekTimeClick}
+                />
+              ) : (
+                <TimelineView
+                  key={getDateKey(selectedDate)}
+                  selectedDate={selectedDate}
+                  currentTime={currentTime}
+                  events={events}
+                  journeys={journeys}
+                  preparations={preparations}
+                  onEventClick={(event) => { setEventInitialMode("details"); setSelectedEvent(event); }}
+                  onPlanEvent={(event) => { setEventInitialMode("route"); setSelectedEvent(event); }}
+                  onJourneyClick={setSelectedJourney}
+                  onJourneyEdit={setEditingJourney}
                 />
               )}
             </div>
@@ -670,6 +684,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
         <EventDetailsModal
           key={selectedEvent.id}
           event={selectedEvent}
+          initialMode={eventInitialMode}
           onClose={() => setSelectedEvent(null)}
           onDelete={handleDeleteEvent}
           onPreparationAdd={handleCreatePreparation}
