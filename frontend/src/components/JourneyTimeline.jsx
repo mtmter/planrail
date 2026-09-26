@@ -2,6 +2,7 @@ import RouteDetails, { RoutePlace, RouteTimeSummary } from "./RouteDetails";
 import { formatFare } from "../routeFormatters";
 import { formatRelativeTime } from "../timelineModel";
 import { parseDateTime } from "../dateUtils";
+import { getCurrentJourneyPart } from "../journeyCurrentPart";
 
 function sectionDepartureAt(section) {
   return section?.kind === "ROUTE" ? section.route?.departure_at : section?.departure_at;
@@ -28,13 +29,14 @@ function candidateMetrics(route) {
   ].filter(Boolean).join("・");
 }
 
-export default function JourneyTimeline({ sections, onCandidateChange, candidateDisabled = false, referenceDate = null }) {
+export default function JourneyTimeline({ sections, onCandidateChange, candidateDisabled = false, referenceDate = null, currentTime = null }) {
   if (!sections?.length) return null;
   const departureAt = sectionDepartureAt(sections[0]);
   const arrivalAt = sectionArrivalAt(sections[sections.length - 1]);
   const originName = sections[0].origin?.name;
   const destinationName = sections[sections.length - 1].destination?.name;
   const displayDate = referenceDate || parseDateTime(departureAt);
+  const currentPart = getCurrentJourneyPart(sections, currentTime);
   return <div className="route-timeline journey-timeline" aria-label="移動予定の行程">
     {departureAt && arrivalAt && <RouteTimeSummary
       departureAt={departureAt}
@@ -55,10 +57,13 @@ export default function JourneyTimeline({ sections, onCandidateChange, candidate
       const previousArrival = sectionArrivalAt(previous);
       const nextDepartureAt = sectionDepartureAt(sections[index + 1]);
       const wait = minutesBetween(previousArrival, start);
+      const currentWait = currentPart?.kind === "wait" && currentPart.sectionIndex === index;
+      const currentFixed = currentPart?.kind === "fixed" && currentPart.sectionIndex === index;
       return <div className="journey-timeline-part" key={section.key || `${section.kind}-${index}`}>
-        {wait > 0 && <div className="route-segment journey-wait"><span className="route-segment-line" aria-hidden="true" /><span>待機 {wait}分</span></div>}
+        {wait > 0 && <div className={`route-segment journey-wait${currentWait ? " is-current" : ""}`} aria-current={currentWait ? "step" : undefined}><span className="route-segment-line" aria-hidden="true" /><span>待機 {wait}分</span></div>}
         {section.kind === "ROUTE" ? section.route ? <>
-          <RouteDetails route={section.route} embedded nextDepartureAt={nextDepartureAt} referenceDate={displayDate} />
+          <RouteDetails route={section.route} embedded nextDepartureAt={nextDepartureAt} referenceDate={displayDate}
+            currentSegmentIndex={currentPart?.kind === "segment" && currentPart.sectionIndex === index ? currentPart.segmentIndex : null} />
           {(section.warnings || []).map((warning, at) => <p className="route-search-guidance" key={at}>{warning}</p>)}
           {onCandidateChange && section.candidates?.length > 0 && <details className="journey-candidate-picker">
             <summary>別の候補を見る</summary>
@@ -73,7 +78,7 @@ export default function JourneyTimeline({ sections, onCandidateChange, candidate
         </> : <div className="route-segment journey-missing"><span className="route-segment-line" aria-hidden="true" />
           <p>{section.origin?.name} → {section.destination?.name}: {section.error || "経路を検索できませんでした"}</p></div>
         : <div className="route-segment-group">
-          <div className="route-segment"><span className="route-segment-line" aria-hidden="true" />
+          <div className={`route-segment${currentFixed ? " is-current" : ""}`} aria-current={currentFixed ? "step" : undefined}><span className="route-segment-line" aria-hidden="true" />
             <div className="route-segment-details"><strong>🔒 {section.label || "固定移動"}</strong>
               <span>{section.origin?.name} → {section.destination?.name}</span>
               <span>{formatRelativeTime(section.departure_at, displayDate)} → {formatRelativeTime(section.arrival_at, displayDate)}</span></div></div>

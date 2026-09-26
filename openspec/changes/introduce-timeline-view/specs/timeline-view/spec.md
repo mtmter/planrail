@@ -31,6 +31,8 @@ Timelineは選択日に時間的に重なるEvent、Standalone Journey、Event-l
 
 選択日が今日の場合、Timelineは `departure_at <= now < arrival_at` のJourneyを優先し、該当がなければ `departure_at > now` のうち最も近いJourneyを1件自動展開しなければならない（MUST）。移動中Journeyが複数ある場合は `arrival_at` が早い順、次に `departure_at` が早い順、最後にID順で1件を決めなければならない（MUST）。今日これ以上のJourneyがない場合、および選択日が過去または未来の場合は自動展開してはならない（MUST NOT）。この内部選択の名称をユーザーUIへ表示してはならない（MUST NOT）。
 
+自動展開されたJourneyの経路本体より上には、状態案内とJourney大見出しだけを表示しなければならない（MUST）。発着時刻、Eventとの関係、両端地点、所要時間、比較指標の重複summaryを置いてはならない（MUST NOT）。それらの行程情報は既存の経路表示で確認できるようにする。
+
 #### Scenario: 移動中のJourneyがある
 
 - **WHEN** 今日のJourneyが現在時刻を跨いでいる
@@ -45,6 +47,11 @@ Timelineは選択日に時間的に重なるEvent、Standalone Journey、Event-l
 
 - **WHEN** 今日の移動中Journeyはなく、出発時刻が未来のJourneyがある
 - **THEN** システムは最も近いJourneyを自動展開し、大見出しとは別に「次の移動」と出発までの時間を示す
+
+#### Scenario: 自動展開Journeyの上部を見る
+
+- **WHEN** 移動中または次のJourneyが自動展開される
+- **THEN** システムは経路本体の前に状態案内とJourney大見出しだけを置き、重複する発着時刻・地点・所要時間・指標・Event関係のsummaryを表示しない
 
 #### Scenario: 今日のJourneyがすべて終了した
 
@@ -88,6 +95,25 @@ TimelineのJourney大見出しはEvent-linkedなら `{event.title}へ`、target�
 
 - **WHEN** 保存済みRouteのホームや比較指標などがnullである
 - **THEN** システムは未取得値を0や推測値に置き換えず、存在する情報だけを表示する
+
+### Requirement: 移動中Journeyの現在区間を示す
+
+Timelineで自動展開された「移動中」Journeyでは、保存済み予定時刻に基づき、`departure_at <= currentTime < arrival_at` を満たすROUTE内segmentまたはFIXED section、もしくは `previousArrival <= currentTime < nextDeparture` を満たすsection間の待機から、行程順で1箇所だけ強調しなければならない（MUST）。既存の`JourneyTimeline`/`RouteDetails`とroute timeline CSSを再利用し、左線と薄い背景で示す。出発前と終了後のJourneyには区間強調を表示してはならない（MUST NOT）。
+
+#### Scenario: 徒歩または公共交通segmentの途中である
+
+- **WHEN** 移動中JourneyのWALK、TRANSIT、その他の保存済みsegmentの予定時間が現在時刻を含む
+- **THEN** システムは該当segmentを1件だけ強調する
+
+#### Scenario: 固定移動またはsection間待機の途中である
+
+- **WHEN** 移動中JourneyのFIXED sectionまたは前section到着から次section出発までの待機が現在時刻を含む
+- **THEN** システムは該当する固定移動または待機を1件だけ強調する
+
+#### Scenario: Journeyの出発前または終了後である
+
+- **WHEN** Journeyの出発前、到着以降、または「次の移動」として自動展開されている
+- **THEN** システムは行程内の区間を強調しない
 
 ### Requirement: その他のJourneyを必要時に展開する
 

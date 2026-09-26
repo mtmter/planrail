@@ -2129,6 +2129,21 @@
   background: #9bb1e3;
 }
 
+.route-segment.is-current > .route-segment-line {
+  width: 5px;
+  background: #2d5dcc;
+}
+
+.route-segment.is-current > .route-segment-details,
+.journey-wait.is-current {
+  background: #edf3ff;
+}
+
+.route-segment.is-current > .route-segment-details strong {
+  color: #244ba8;
+  font-weight: 750;
+}
+
 .route-segment-details {
   align-self: center;
   display: grid;
