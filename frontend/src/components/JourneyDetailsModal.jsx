@@ -2,8 +2,10 @@ import { useState } from "react";
 import JourneyDetails from "./JourneyDetails";
 import { getEventArrivalDeadline, getEventDestination, placesMatch } from "../eventJourneyTarget";
 import { journeyDisplayName } from "../journeySerializer";
+import useModalScrollLock from "./useModalScrollLock";
 
 function JourneyDetailsModal({ journey, event = null, onClose, onEdit, onDelete }) {
+  useModalScrollLock();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");

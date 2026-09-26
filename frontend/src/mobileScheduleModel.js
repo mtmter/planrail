@@ -6,7 +6,7 @@ import {
 } from "./dateUtils.js";
 
 export function getMobileDateStripDates(selectedDate) {
-  return Array.from({ length: 7 }, (_, index) => addDays(selectedDate, index - 3));
+  return Array.from({ length: 61 }, (_, index) => addDays(selectedDate, index - 30));
 }
 
 export function getMobileCalendarDay(items, date) {

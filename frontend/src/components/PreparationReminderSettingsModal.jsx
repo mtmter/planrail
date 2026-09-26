@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import useModalScrollLock from "./useModalScrollLock";
 
 function PreparationReminderSettingsModal({
   isMobile = false,
@@ -7,6 +8,7 @@ function PreparationReminderSettingsModal({
   options,
   value,
 }) {
+  useModalScrollLock();
   useEffect(() => {
     function handleKeyDown(keyEvent) {
       if (keyEvent.key === "Escape") {
@@ -14,12 +16,9 @@ function PreparationReminderSettingsModal({
       }
     }
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose]);

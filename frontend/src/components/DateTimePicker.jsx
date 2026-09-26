@@ -48,6 +48,7 @@ function DateTimePicker({
   const pickerRef = useRef(null);
   const timeInputRef = useRef(null);
   const timePickerRef = useRef(null);
+  const timeOptionsRef = useRef(null);
   const selectedDate = parseDateTime(value) ?? new Date();
   const selectedDateKey = getDateKey(selectedDate);
   const selectedTime = value?.slice(11, 16) || "09:00";
@@ -65,6 +66,21 @@ function DateTimePicker({
       timeInputRef.current.value = selectedTime;
     }
   }, [selectedTime]);
+
+  useEffect(() => {
+    if (!isTimeOptionsOpen || !timeOptionsRef.current) return;
+
+    const [hour, minute] = selectedTime.split(":").map(Number);
+    const optionIndex = Math.min(
+      95,
+      Math.max(0, Math.round((hour * 60 + minute) / 15)),
+    );
+    const options = timeOptionsRef.current;
+    const selectedOption = options.children[optionIndex];
+    options.scrollTop =
+      selectedOption.offsetTop - options.offsetTop -
+      options.clientHeight / 2 + selectedOption.clientHeight / 2;
+  }, [isTimeOptionsOpen, selectedTime]);
 
   useEffect(() => {
     if (!isCalendarOpen && !isTimeOptionsOpen) {
@@ -276,6 +292,7 @@ function DateTimePicker({
             {isTimeOptionsOpen && (
               <div
                 className="time-picker-options"
+                ref={timeOptionsRef}
                 id={`${id}-time-options`}
                 role="listbox"
                 aria-label={`${label}の15分刻みの時刻候補`}

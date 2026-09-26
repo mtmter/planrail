@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { WEEKDAY_NAMES, parseDateTime } from "../dateUtils";
+import { WEEKDAY_NAMES, parseDateTime, toDateTimeInputValue } from "../dateUtils";
 import DateTimePicker from "./DateTimePicker";
 import EventPlaceField from "./EventPlaceField";
 import PreparationChecklist from "./PreparationChecklist";
 import { JourneyBuilderContent } from "./JourneyBuilderModal";
 import JourneyDetails from "./JourneyDetails";
+import useModalScrollLock from "./useModalScrollLock";
 import { getEventArrivalDeadline, getEventDestination, hasSearchableDestination, placesMatch } from "../eventJourneyTarget";
 
 function formatEventDateTime(value) {
@@ -68,6 +69,7 @@ function EventDetailsModal({
   const [title, setTitle] = useState(event.title);
   const [startAt, setStartAt] = useState(event.start_at ?? "");
   const [endAt, setEndAt] = useState(event.end_at ?? "");
+
   const [description, setDescription] = useState(event.description ?? "");
   const [locationName, setLocationName] = useState(
     event.location_name || event.destination || "",
@@ -80,9 +82,24 @@ function EventDetailsModal({
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  useModalScrollLock();
   const [journey, setJourney] = useState(null);
   const [isJourneyLoading, setIsJourneyLoading] = useState(true);
   const journeyInvalidatedRef = useRef(false);
+
+  function handleStartChange(nextStartAt) {
+    const currentStart = parseDateTime(startAt);
+    const currentEnd = parseDateTime(endAt);
+    const nextStart = parseDateTime(nextStartAt);
+
+    setStartAt(nextStartAt);
+    if (nextStart && currentEnd && nextStart > currentEnd) {
+      const duration = currentStart && currentEnd >= currentStart
+        ? currentEnd.getTime() - currentStart.getTime()
+        : 60 * 60 * 1000;
+      setEndAt(toDateTimeInputValue(new Date(nextStart.getTime() + duration)));
+    }
+  }
 
   const isBusy = isSubmitting;
   const googleMapsUrl = createGoogleMapsUrl(event);
@@ -141,12 +158,9 @@ function EventDetailsModal({
       }
     }
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isBusy, mode, onClose]);
@@ -317,7 +331,7 @@ function EventDetailsModal({
                 id="edit-event-start-at"
                 label="開始日時"
                 value={startAt}
-                onChange={setStartAt}
+                onChange={handleStartChange}
               />
               <DateTimePicker
                 id="edit-event-end-at"

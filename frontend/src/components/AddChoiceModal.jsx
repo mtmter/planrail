@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import AddEventModal from "./AddEventModal";
 import { JourneyBuilderContent } from "./JourneyBuilderModal";
+import useModalScrollLock from "./useModalScrollLock";
 
 export default function AddChoiceModal({ initialValues, onCreateEvent, onCreateJourney, onClose }) {
   const [tab, setTab] = useState("event");
+  useModalScrollLock();
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     function handleKeyDown(event) { if (event.key === "Escape") onClose(); }
     window.addEventListener("keydown", handleKeyDown);
-    return () => { document.body.style.overflow = previousOverflow; window.removeEventListener("keydown", handleKeyDown); };
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
   return <div className="modal-backdrop add-choice-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="event-details-modal add-choice-modal" role="dialog" aria-modal="true" aria-labelledby="add-choice-heading">

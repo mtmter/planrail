@@ -202,6 +202,15 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     getInitialPreparationReminderMinutes,
   );
   const [currentTime, setCurrentTime] = useState(new Date());
+  const mobileDateStripRef = useRef(null);
+
+  useEffect(() => {
+    const strip = mobileDateStripRef.current;
+    const selectedButton = strip?.querySelector('[aria-current="date"]');
+    if (selectedButton) {
+      strip.scrollLeft = selectedButton.offsetLeft - (strip.clientWidth - selectedButton.clientWidth) / 2;
+    }
+  }, [selectedDate, isMobile, mobileTab, isLoading]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 720px)");
@@ -682,7 +691,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
         ) : isMobile ? (
           mobileTab === "timeline" ? (
             <div className="mobile-timeline-page">
-              <nav className="mobile-date-strip" aria-label="タイムラインの日付">
+              <nav className="mobile-date-strip" aria-label="タイムラインの日付" ref={mobileDateStripRef}>
                 {getMobileDateStripDates(selectedDate).map((date) => (
                   <button
                     type="button"
