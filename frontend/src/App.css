@@ -1940,6 +1940,128 @@
   padding: 0 8px;
 }
 
+.timeline-view {
+  width: min(100%, 760px);
+  min-width: 0;
+  margin: 0 auto;
+  padding: 12px 4px 32px;
+  overflow-y: auto;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 12px;
+}
+
+.timeline-item {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #d9e0e9;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.timeline-journey.is-focused {
+  border-color: #9bb1e3;
+  box-shadow: 0 2px 9px rgb(39 76 162 / 10%);
+}
+
+.timeline-past {
+  opacity: 0.7;
+}
+
+.timeline-item-time,
+.timeline-focus-label {
+  margin: 0 0 8px;
+  color: #4b5c73;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.timeline-focus-label {
+  color: #2957c8;
+}
+
+.timeline-item-title,
+.timeline-journey-title {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: #253149;
+  background: none;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.timeline-item-title { cursor: pointer; }
+.timeline-item-title:hover { color: #2957c8; }
+
+.timeline-item-place,
+.timeline-item-muted {
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.timeline-item-muted {
+  color: #687386;
+  font-size: 0.84rem;
+}
+
+.timeline-event-plan,
+.timeline-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.timeline-event-plan { color: #687386; font-size: 0.86rem; }
+.timeline-item-actions button {
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 650;
+}
+.timeline-journey-route { min-width: 0; margin-top: 18px; }
+.timeline-journey-route .route-result-heading { min-width: 0; }
+.timeline-journey-route .route-segment-details { min-width: 0; overflow-wrap: anywhere; }
+.timeline-journey-route .route-place-info { flex-wrap: wrap; }
+.timeline-journey-route .route-place-times { flex-basis: auto; min-width: 76px; }
+
+.timeline-now {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  color: #2957c8;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.timeline-now::before,
+.timeline-now::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: #9bb1e3;
+}
+
+.timeline-empty { padding: 36px 12px; color: #687386; text-align: center; }
+
+@media (max-width: 420px) {
+  .timeline-item { padding: 14px; }
+  .route-result-times { gap: 6px; }
+  .route-result-times strong { font-size: 1.2rem; }
+  .route-result-times p { min-width: 0; padding: 5px; }
+  .journey-result-heading h3 { gap: 6px; }
+}
+
 .route-place {
   position: relative;
   display: grid;

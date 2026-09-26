@@ -6,6 +6,7 @@ import {
   getDoc,
   getDocs,
   query,
+  runTransaction,
   setDoc,
   updateDoc,
   where,
@@ -14,6 +15,7 @@ import {
 import { db } from "./firebase";
 import { serializeJourney } from "./journeySerializer";
 import { journeyDocumentId } from "./journeyDocumentId";
+import { eventJourneyTargetChanged } from "./eventJourneyTarget";
 
 function userCollection(uid, collectionName) {
   return collection(db, "users", uid, collectionName);
@@ -54,8 +56,18 @@ export async function createEvent(uid, eventData) {
 }
 
 export async function updateEvent(uid, eventId, eventData) {
-  await updateDoc(userDocument(uid, "events", eventId), eventData);
-  return { id: String(eventId), ...eventData };
+  const eventReference = userDocument(uid, "events", eventId);
+  const journeyReference = userDocument(uid, "journeys", `event-${eventId}`);
+  return runTransaction(db, async (transaction) => {
+    const currentSnapshot = await transaction.get(eventReference);
+    if (!currentSnapshot.exists()) throw new Error("予定が見つかりません");
+    const previousEvent = currentSnapshot.data();
+    const updatedEvent = { ...previousEvent, ...eventData };
+    const journeyInvalidated = eventJourneyTargetChanged(previousEvent, updatedEvent);
+    transaction.update(eventReference, eventData);
+    if (journeyInvalidated) transaction.delete(journeyReference);
+    return { event: { id: String(eventId), ...updatedEvent }, journeyInvalidated };
+  });
 }
 
 export async function deleteEvent(uid, eventId) {

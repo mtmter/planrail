@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { WEEKDAY_NAMES, parseDateTime } from "../dateUtils";
 import DateTimePicker from "./DateTimePicker";
 import EventPlaceField from "./EventPlaceField";
 import PreparationChecklist from "./PreparationChecklist";
 import { JourneyBuilderContent } from "./JourneyBuilderModal";
 import JourneyDetails from "./JourneyDetails";
-import { getEventArrivalDeadline } from "../eventJourneyTarget";
+import { getEventArrivalDeadline, getEventDestination, hasSearchableDestination, placesMatch } from "../eventJourneyTarget";
 
 function formatEventDateTime(value) {
   const date = parseDateTime(value);
@@ -19,39 +19,6 @@ function formatEventDateTime(value) {
 
 function hasCoordinateValue(value) {
   return typeof value === "number" && Number.isFinite(value);
-}
-
-function placesMatch(firstPlace, secondPlace) {
-  if (!firstPlace || !secondPlace) {
-    return firstPlace === secondPlace;
-  }
-  if (firstPlace.place_id || secondPlace.place_id) {
-    return firstPlace.place_id === secondPlace.place_id;
-  }
-  return (
-    firstPlace.lat === secondPlace.lat &&
-    firstPlace.lng === secondPlace.lng &&
-    firstPlace.address === secondPlace.address
-  );
-}
-
-function getSavedPlace(event) {
-  const hasPlaceDetails =
-    hasCoordinateValue(event.destination_lat) &&
-    hasCoordinateValue(event.destination_lng);
-
-  if (!hasPlaceDetails) {
-    return null;
-  }
-
-  return {
-    name: event.location_name ?? "",
-    address: event.destination ?? "",
-    place_id: event.destination_place_id ?? "",
-    lat: event.destination_lat ?? null,
-    lng: event.destination_lng ?? null,
-    types: event.destination_place_types ?? [],
-  };
 }
 
 function createGoogleMapsUrl(event) {
@@ -95,8 +62,9 @@ function EventDetailsModal({
   onJourneySave,
   onUpdate,
   preparations,
+  initialMode = "details",
 }) {
-  const [mode, setMode] = useState("details");
+  const [mode, setMode] = useState(initialMode);
   const [title, setTitle] = useState(event.title);
   const [startAt, setStartAt] = useState(event.start_at ?? "");
   const [endAt, setEndAt] = useState(event.end_at ?? "");
@@ -105,7 +73,7 @@ function EventDetailsModal({
     event.location_name || event.destination || "",
   );
   const [selectedPlace, setSelectedPlace] = useState(() =>
-    getSavedPlace(event),
+    getEventDestination(event),
   );
   const [arrivalBufferMinutes, setArrivalBufferMinutes] = useState(
     event.arrival_buffer_minutes?.toString() ?? "",
@@ -114,6 +82,7 @@ function EventDetailsModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [journey, setJourney] = useState(null);
   const [isJourneyLoading, setIsJourneyLoading] = useState(true);
+  const journeyInvalidatedRef = useRef(false);
 
   const isBusy = isSubmitting;
   const googleMapsUrl = createGoogleMapsUrl(event);
@@ -128,10 +97,10 @@ function EventDetailsModal({
       : event.destination_place_id
         ? "Google Mapsで場所を表示"
         : "未設定");
-  const canSearchRoute = hasCoordinates;
+  const canSearchRoute = hasSearchableDestination(event);
   const journeyNeedsReplan = Boolean(
     journey &&
-      (!placesMatch(journey.target?.destination, getSavedPlace(event)) ||
+      (!placesMatch(journey.target?.destination, getEventDestination(event)) ||
         journey.target?.arrival_deadline !== getEventArrivalDeadline(event)),
   );
   useEffect(() => {
@@ -140,7 +109,7 @@ function EventDetailsModal({
     async function loadJourney() {
       try {
         const loadedJourney = await onJourneyLoad(`event-${event.id}`);
-        if (!shouldIgnoreResult) {
+        if (!shouldIgnoreResult && !journeyInvalidatedRef.current) {
           setJourney(loadedJourney);
         }
       } catch (loadError) {
@@ -188,7 +157,7 @@ function EventDetailsModal({
     setEndAt(event.end_at ?? "");
     setDescription(event.description ?? "");
     setLocationName(event.location_name || event.destination || "");
-    setSelectedPlace(getSavedPlace(event));
+    setSelectedPlace(getEventDestination(event));
     setArrivalBufferMinutes(
       event.arrival_buffer_minutes?.toString() ?? "",
     );
@@ -235,7 +204,7 @@ function EventDetailsModal({
     setErrorMessage("");
 
     try {
-      await onUpdate(event.id, {
+      const result = await onUpdate(event.id, {
         title: title.trim(),
         start_at: startAt,
         end_at: endAt,
@@ -249,6 +218,10 @@ function EventDetailsModal({
         arrival_buffer_minutes:
           arrivalBufferMinutes === "" ? null : Number(arrivalBufferMinutes),
       });
+      if (result.journeyInvalidated) {
+        journeyInvalidatedRef.current = true;
+        setJourney(null);
+      }
       setMode("details");
     } catch (updateError) {
       setErrorMessage(updateError.message);
