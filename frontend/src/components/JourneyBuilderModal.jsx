@@ -24,9 +24,9 @@ function PlaceField({ id, label, input, disabled, onChange, readOnly = false }) 
     onPlaceSelect={(point) => onChange(point ? selectedPlace(point) : typedPlace(input.text))} />;
 }
 
-export function JourneyBuilderContent({ event = null, journey = null, onSave, onCancel }) {
+export function JourneyBuilderContent({ event = null, journey = null, initialDeadline = "", onSave, onCancel }) {
   const target = useMemo(() => eventTarget(event), [event]);
-  const [input, setInput] = useState(() => createInput(journey));
+  const [input, setInput] = useState(() => createInput(journey, initialDeadline));
   const [result, setResult] = useState(() => {
     const initial = createInput(journey);
     const sections = initialSavedPreview(journey, initial, eventTarget(event));

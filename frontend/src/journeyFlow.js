@@ -4,8 +4,8 @@ export const emptyPlace = () => ({ text: "", point: null });
 export const selectedPlace = (point) => ({ text: point?.name || "", point: point || null });
 export const typedPlace = (text) => ({ text, point: null });
 
-export function createInput(journey = null) {
-  if (!journey) return { origin: emptyPlace(), destination: emptyPlace(), deadline: "", fixed: [], nextId: 1 };
+export function createInput(journey = null, initialDeadline = "") {
+  if (!journey) return { origin: emptyPlace(), destination: emptyPlace(), deadline: initialDeadline, fixed: [], nextId: 1 };
   const first = journey.sections?.[0];
   const fixed = (journey.sections || []).filter((section) => section.kind === "FIXED").map((section, index) => ({
     id: index + 1, origin: selectedPlace(section.origin), destination: selectedPlace(section.destination),

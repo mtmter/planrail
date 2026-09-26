@@ -40,7 +40,7 @@ async function getCollectionData(uid, collectionName) {
 export async function loadScheduleData(uid) {
   const [events, preparations, journeys] = await Promise.all([
     getCollectionData(uid, "events"),
-    getCollectionData(uid, "preparations"),
+    getCollectionData(uid, "preparations").catch(() => null),
     getCollectionData(uid, "journeys"),
   ]);
 

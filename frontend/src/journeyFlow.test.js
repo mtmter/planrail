@@ -15,6 +15,11 @@ const route = (section, id, departure, arrival) => ({
 function input() { return { ...createInput(), origin: selectedPlace(A), destination: selectedPlace(F), deadline: at("12") }; }
 function withFixed(fixed) { return { ...fixed, origin: selectedPlace(B), destination: selectedPlace(C), departure_at: at("09"), arrival_at: at("10"), label: "列車" }; }
 
+test("new Standalone Journey accepts an initial deadline without changing saved edits", () => {
+  assert.equal(createInput(null, at("09")).deadline, at("09"));
+  assert.equal(createInput({ target: { arrival_deadline: at("12") }, sections: [] }, at("09")).deadline, at("12"));
+});
+
 test("0, 1, and multiple fixed movements derive all gaps and their time constraints", () => {
   const plain = buildPlan(input());
   assert.deepEqual(plain.map((section) => section.kind), ["ROUTE"]);
