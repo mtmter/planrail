@@ -48,9 +48,10 @@ CORS_ORIGINS
 
 `firebase.json` は `firestore.rules` をFirestore Security Rulesとして参照しています。Firebase Hostingの設定はありません。
 
+リポジトリにはfrontend専用の`frontend/vercel.json`があり、PWA資源のheaderだけを設定しています。backend用の`vercel.json`はありません。
+
 リポジトリには次の設定がありません。
 
-- `vercel.json`
 - GitHub ActionsなどのCI/CDワークフロー
 - Node.jsまたはPythonのランタイムバージョン指定
 
@@ -87,6 +88,21 @@ VITE_BACKEND_API_BASE_URL=https://<backend-domain>/api
 
 `VITE_BACKEND_API_BASE_URL` の末尾は `/api` とし、その後ろに `/` を付けません。Viteの環境変数はビルド時に取り込まれるため、値を変更した場合はフロントエンドを再デプロイします。
 
+## PWAの配信と確認
+
+frontendの通常の`npm run build`は、`vite-plugin-pwa`でWeb App ManifestとService Workerを生成します。manifestは`https://<frontend-origin>/manifest.webmanifest`、Service Workerは`https://<frontend-origin>/sw.js`で配信し、登録scopeはそのfrontend originの`/`です。アイコンは`/pwa-192x192.png`、`/pwa-512x512.png`、`/pwa-maskable-512x512.png`、iOS用の`/apple-touch-icon.png`です。PWAの登録・cacheはoriginごとに独立します。
+
+`frontend/vercel.json`は`/`、`/index.html`、`/sw.js`、`/manifest.webmanifest`に`Cache-Control: public, max-age=0, must-revalidate`を指定します。manifestには`Content-Type: application/manifest+json`も指定します。hashed JS/CSS/assetsには特別なheaderを追加せず、広いSPA rewriteも設定しません。backendの配信設定は変更しません。
+
+Vercel previewとproductionのそれぞれで次を確認します。
+
+1. ブラウザのNetworkまたはHTTPクライアントで`/manifest.webmanifest`、`/sw.js`、各アイコンを直接取得し、HTTP status、Content-Type、上記Cache-Controlを確認します。manifestの名前・説明・`id`・`start_url`・`scope`・表示モード・色・アイコンと画像寸法も確認します。previewが保護されている場合はアクセス可能なセッションで確認します。
+2. Chrome DevToolsのApplication > Manifestでinstallabilityの重大なエラーがないこと、Application > Service WorkersでSWがfrontend originの`/`へ登録されていることを確認します。通常のPC/スマホブラウザ画面も回帰確認します。
+3. 新buildを同じoriginへデプロイして通常の再訪・再起動でSWと静的アプリ版が更新され、旧precacheが削除されることを確認します。登録はpluginが生成するscriptに任せ、アプリ側の更新監視、手動cache削除、更新UIは通常運用に含めません。開いたフォームが更新のために強制reloadされないことも確認します。
+4. rollbackは旧コードを再デプロイしたうえで同じoriginから再訪し、戻した版のSWと画面へ移行できることを確認します。既に登録されたSWが残り得るため、公開HTMLだけでなくSW・precacheも確認します。
+
+実機iPhone/Androidでのホーム画面追加、standalone起動、認証、safe areaは`enable-pwa-installation` changeのManual acceptance checklistで扱います。
+
 経路検索APIは今回の変更で単一Route JSONから候補レスポンス（最大3件）へ変わるため、バックエンドとフロントエンドを同じリリースで更新してください。片方だけが新旧で混在すると検索結果を処理できません。リポジトリには両プロジェクトを一括デプロイするCI/CDがないため、同じ変更コミットから両方をデプロイし、経路検索・候補選択・移動予定登録を確認します。
 
 ## 外部サービス側の確認
@@ -116,3 +132,5 @@ GET https://<backend-domain>/api/health
 ## 未確認事項
 
 環境変数の実値、Firebase AuthenticationのAuthorized domains、Google Maps APIキーのHTTPリファラ制限、デプロイ済みFirestore Security Rulesの版は今回取得していません。これらは各サービスの管理画面で確認する必要があります。
+
+READMEは`https://planrail-frontend.vercel.app`、この資料の過去の確認結果は`https://ryuute-v2-frontend.vercel.app`をfrontend URLとして記載しています。現行production aliasはVercel project設定で要確認です。PWA確認時は実際に案内するoriginを決め、preview・productionを混同しないでください。
