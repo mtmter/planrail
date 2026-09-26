@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 function PreparationReminderSettingsModal({
+  isMobile = false,
   onChange,
   onClose,
   options,
@@ -54,7 +55,9 @@ function PreparationReminderSettingsModal({
         </div>
 
         <div className="notification-settings-content">
-          <label htmlFor="preparation-reminder-minutes">表示を始める時間</label>
+          <label htmlFor="preparation-reminder-minutes">
+            {isMobile ? "まもなく必要と表示する時間" : "表示を始める時間"}
+          </label>
           <select
             id="preparation-reminder-minutes"
             value={value}
@@ -67,7 +70,9 @@ function PreparationReminderSettingsModal({
             ))}
           </select>
           <p>
-            未完了の準備がある予定を、選択した時間からアプリ内に表示します。
+            {isMobile
+              ? "未来の準備はすべて一覧に表示します。選択した時間内の予定を「まもなく必要」と強調します。"
+              : "未完了の準備がある予定を、選択した時間からアプリ内に表示します。"}
           </p>
         </div>
 

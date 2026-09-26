@@ -24,7 +24,21 @@
 - **WHEN** 対象の未完了項目が0件で、Preparationを正常に取得できている
 - **THEN** システムは空状態を表示する
 - **WHEN** Preparationの取得に失敗した
-- **THEN** システムは取得失敗と再読み込み導線を示し、0件と誤表示しない
+- **THEN** システムは準備画面内に取得失敗と再読み込み導線を示し、0件と誤表示しない
+
+### Requirement: スマホではPreparation単独の取得失敗を準備画面で扱う
+
+Events/Journeysの取得が成功しPreparationだけ取得に失敗した場合、幅720px以下では、システムは準備画面内に取得失敗と再読み込み導線を示し、準備badgeを表示してはならない（MUST）。スマホのタイムラインとカレンダーにPreparation専用のglobal error bannerを重複表示してはならない（MUST NOT）。スケジュール全体の取得失敗など他のデータにも影響する既存global error、およびPCの既存エラー表示は維持しなければならない（MUST）。
+
+#### Scenario: Preparationだけ取得できない
+
+- **WHEN** Events/Journeysは取得でき、Preparationだけ取得に失敗した状態でスマホのタイムラインまたはカレンダーを開く
+- **THEN** システムはその画面にPreparation専用のglobal error bannerを表示せず、準備badgeを隠し、準備画面に取得失敗と再読み込み導線を表示する
+
+#### Scenario: スケジュール全体を取得できない
+
+- **WHEN** Events/Journeysを含むスケジュール取得に失敗した
+- **THEN** システムは従来のglobal errorと再読み込み導線を表示する
 
 ### Requirement: 準備badgeは未来の未完了項目数を示す
 

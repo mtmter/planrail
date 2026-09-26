@@ -10,6 +10,8 @@ import EventDetailsModal from "./components/EventDetailsModal";
 import JourneyBuilderModal from "./components/JourneyBuilderModal";
 import JourneyDetailsModal from "./components/JourneyDetailsModal";
 import MiniCalendar from "./components/MiniCalendar";
+import MobileMonthCalendar from "./components/MobileMonthCalendar";
+import MobilePreparationPage from "./components/MobilePreparationPage";
 import MonthCalendar from "./components/MonthCalendar";
 import PreparationReminderList from "./components/PreparationReminderList";
 import PreparationReminderSettingsModal from "./components/PreparationReminderSettingsModal";
@@ -30,6 +32,7 @@ import {
 import {
   addDays,
   addMonths,
+  WEEKDAY_NAMES,
   formatDayTitle,
   formatMonthTitle,
   formatWeekTitle,
@@ -40,6 +43,10 @@ import {
   toDateTimeInputValue,
 } from "./dateUtils";
 import { journeyDisplayName } from "./journeySerializer";
+import {
+  getMobileDateStripDates,
+  getUpcomingPreparationGroups,
+} from "./mobileScheduleModel";
 
 const PREPARATION_REMINDER_STORAGE_KEY =
   "ryuute_preparation_reminder_minutes";
@@ -50,6 +57,9 @@ const PREPARATION_REMINDER_OPTIONS = [
   { label: "1日前", minutes: 24 * 60 },
   { label: "3日前", minutes: 3 * 24 * 60 },
   { label: "7日前", minutes: 7 * 24 * 60 },
+];
+const FULL_WEEKDAY_NAMES = [
+  "日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日",
 ];
 
 function getInitialPreparationReminderMinutes() {
@@ -166,6 +176,10 @@ function createInitialValues(date, eventStartMinutes = 9 * 60) {
 
 function ScheduleApp({ authErrorMessage, onLogout, user }) {
   const [activeView, setActiveView] = useState("month");
+  const [mobileTab, setMobileTab] = useState("timeline");
+  const [isMobile, setIsMobile] = useState(() =>
+    window.matchMedia("(max-width: 720px)").matches,
+  );
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [miniCalendarMonth, setMiniCalendarMonth] = useState(() => {
     const today = new Date();
@@ -188,6 +202,16 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     getInitialPreparationReminderMinutes,
   );
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 720px)");
+    function handleWidthChange(event) {
+      setIsMobile(event.matches);
+    }
+
+    mediaQuery.addEventListener("change", handleWidthChange);
+    return () => mediaQuery.removeEventListener("change", handleWidthChange);
+  }, []);
 
   useEffect(() => {
     async function loadSchedule() {
@@ -250,6 +274,16 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     preparationReminderMinutes,
     currentTime,
   );
+  const upcomingPreparationGroups = getUpcomingPreparationGroups(
+    events,
+    preparations,
+    preparationReminderMinutes,
+    currentTime,
+  );
+  const upcomingPreparationCount = upcomingPreparationGroups?.reduce(
+    (count, group) => count + group.items.length,
+    0,
+  ) ?? 0;
   const selectedReminderOption = PREPARATION_REMINDER_OPTIONS.find(
     (option) => option.minutes === preparationReminderMinutes,
   );
@@ -290,6 +324,18 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
 
   function handleAddButtonClick() {
     setAddChoiceValues(getGlobalAddValues());
+  }
+
+  function handleMobileAddButtonClick() {
+    setAddChoiceValues({
+      ...createInitialValues(selectedDate),
+      journeyDeadline: toDateTimeInputValue(createDateAtMinutes(selectedDate, 9 * 60)),
+    });
+  }
+
+  function handleMobileMonthDateClick(date) {
+    handleCalendarDateChange(date);
+    setMobileTab("timeline");
   }
 
   function getGlobalAddValues() {
@@ -461,8 +507,57 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
     }
   }
 
+  function handleEventDetailsClick(event) {
+    setEventInitialMode("details");
+    setSelectedEvent(event);
+  }
+
+  const timelineContent = (
+    <TimelineView
+      key={getDateKey(selectedDate)}
+      selectedDate={selectedDate}
+      currentTime={currentTime}
+      events={events}
+      journeys={journeys}
+      preparations={preparations}
+      onEventClick={handleEventDetailsClick}
+      onPlanEvent={(event) => { setEventInitialMode("route"); setSelectedEvent(event); }}
+      onJourneyClick={setSelectedJourney}
+      onJourneyEdit={setEditingJourney}
+    />
+  );
+  const globalErrorMessage =
+    authErrorMessage || errorMessage || (!isMobile ? preparationErrorMessage : "");
+
   return (
-    <div className="schedule-app calendar-view-active">
+    <div className={`schedule-app calendar-view-active${isMobile ? " is-mobile-schedule" : ""}`}>
+      {isMobile ? (
+        <header className="mobile-topbar">
+          {mobileTab === "timeline" ? (
+            <div className="mobile-topbar-main">
+              <h1>{selectedDate.getMonth() + 1}月{selectedDate.getDate()}日 {FULL_WEEKDAY_NAMES[selectedDate.getDay()]}</h1>
+              {!isSameDay(selectedDate, currentTime) && (
+                <button type="button" className="mobile-topbar-today" onClick={() => handleCalendarDateChange(new Date())}>今日</button>
+              )}
+            </div>
+          ) : mobileTab === "calendar" ? (
+            <div className="mobile-topbar-main">
+              <h1>{formatMonthTitle(selectedDate)}</h1>
+              <div className="mobile-topbar-calendar-actions">
+                <button type="button" aria-label="前の月" onClick={() => handleCalendarDateChange(addMonths(selectedDate, -1))}>‹</button>
+                <button type="button" aria-label="次の月" onClick={() => handleCalendarDateChange(addMonths(selectedDate, 1))}>›</button>
+                <button type="button" className="mobile-topbar-today" onClick={() => handleCalendarDateChange(new Date())}>今日</button>
+              </div>
+            </div>
+          ) : (
+            <div className="mobile-topbar-main">
+              <h1>準備</h1>
+              <button type="button" className="mobile-settings-button" aria-label="準備通知の設定" onClick={() => setIsReminderSettingsOpen(true)}>⚙</button>
+            </div>
+          )}
+          <AccountMenu user={user} onLogout={onLogout} />
+        </header>
+      ) : (
       <header className="app-header">
         <div className="app-brand">
           <span className="app-logo" aria-hidden="true">
@@ -559,12 +654,11 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
           </div>
         </div>
       </header>
+      )}
 
-      {(authErrorMessage || errorMessage || preparationErrorMessage) && (
+      {globalErrorMessage && (
         <div className="error-message" role="alert">
-          <span>
-            {authErrorMessage || errorMessage || preparationErrorMessage}
-          </span>
+          <span>{globalErrorMessage}</span>
           {!authErrorMessage && (
             <button type="button" onClick={handleRetry}>
               再読み込み
@@ -573,7 +667,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
         </div>
       )}
 
-      {!isLoading && activeView !== "timeline" && (
+      {!isMobile && !isLoading && activeView !== "timeline" && (
         <div className="top-preparation-reminders">
           <PreparationReminderList
             reminders={preparationReminders}
@@ -582,9 +676,45 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
         </div>
       )}
 
-      <main className="app-content">
+      <main className={`app-content${isMobile ? " mobile-app-content" : ""}`}>
         {isLoading ? (
           <p className="status-message">読み込み中...</p>
+        ) : isMobile ? (
+          mobileTab === "timeline" ? (
+            <div className="mobile-timeline-page">
+              <nav className="mobile-date-strip" aria-label="タイムラインの日付">
+                {getMobileDateStripDates(selectedDate).map((date) => (
+                  <button
+                    type="button"
+                    className={isSameDay(date, selectedDate) ? "is-selected" : ""}
+                    key={getDateKey(date)}
+                    aria-label={`${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${FULL_WEEKDAY_NAMES[date.getDay()]}`}
+                    aria-current={isSameDay(date, selectedDate) ? "date" : undefined}
+                    onClick={() => handleCalendarDateChange(date)}
+                  >
+                    <span>{date.getDate()}</span>
+                    <small>{WEEKDAY_NAMES[date.getDay()]}</small>
+                  </button>
+                ))}
+              </nav>
+              {timelineContent}
+            </div>
+          ) : mobileTab === "calendar" ? (
+            <MobileMonthCalendar
+              items={calendarItems}
+              selectedDate={selectedDate}
+              onDateSelect={handleMobileMonthDateClick}
+            />
+          ) : errorMessage && preparations === null ? (
+            <p className="status-message">スケジュールを読み込めませんでした。上の再読み込みから再試行してください。</p>
+          ) : (
+            <MobilePreparationPage
+              groups={upcomingPreparationGroups}
+              onEventClick={handleEventDetailsClick}
+              onRetry={handleRetry}
+              onUpdate={handleUpdatePreparation}
+            />
+          )
         ) : (
           <div className="calendar-page-layout">
             <aside className="calendar-sidebar" aria-label="日付と準備案内">
@@ -625,24 +755,47 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
                   onEventClick={handleCalendarItemClick}
                   onTimeClick={handleWeekTimeClick}
                 />
-              ) : (
-                <TimelineView
-                  key={getDateKey(selectedDate)}
-                  selectedDate={selectedDate}
-                  currentTime={currentTime}
-                  events={events}
-                  journeys={journeys}
-                  preparations={preparations}
-                  onEventClick={(event) => { setEventInitialMode("details"); setSelectedEvent(event); }}
-                  onPlanEvent={(event) => { setEventInitialMode("route"); setSelectedEvent(event); }}
-                  onJourneyClick={setSelectedJourney}
-                  onJourneyEdit={setEditingJourney}
-                />
-              )}
+              ) : timelineContent}
             </div>
           </div>
         )}
       </main>
+
+      {isMobile && mobileTab !== "preparation" && !isLoading && (
+        <button
+          type="button"
+          className="mobile-add-fab"
+          aria-label="予定または移動予定を追加"
+          onClick={handleMobileAddButtonClick}
+        >
+          ＋
+        </button>
+      )}
+
+      {isMobile && (
+        <nav className="mobile-bottom-nav" aria-label="主要画面">
+          {[
+            { id: "timeline", label: "タイムライン" },
+            { id: "calendar", label: "カレンダー" },
+            { id: "preparation", label: "準備" },
+          ].map((tab) => (
+            <button
+              type="button"
+              key={tab.id}
+              className={mobileTab === tab.id ? "is-active" : ""}
+              aria-current={mobileTab === tab.id ? "page" : undefined}
+              onClick={() => setMobileTab(tab.id)}
+            >
+              {tab.label}
+              {tab.id === "preparation" && upcomingPreparationCount > 0 && (
+                <span className="mobile-preparation-badge" aria-label={`未完了の準備${upcomingPreparationCount}件`}>
+                  {upcomingPreparationCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {addModalValues && (
         <AddEventModal
@@ -673,6 +826,7 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
 
       {isReminderSettingsOpen && (
         <PreparationReminderSettingsModal
+          isMobile={isMobile}
           value={preparationReminderMinutes}
           options={PREPARATION_REMINDER_OPTIONS}
           onChange={handlePreparationReminderMinutesChange}
