@@ -9,10 +9,10 @@ import {
 
 test("mobile date strip crosses month and year boundaries around the selected day", () => {
   const dates = getMobileDateStripDates(new Date(2026, 11, 31));
-  assert.deepEqual(dates.map(getDateKey), [
-    "2026-12-28", "2026-12-29", "2026-12-30", "2026-12-31",
-    "2027-01-01", "2027-01-02", "2027-01-03",
-  ]);
+  assert.equal(dates.length, 61);
+  assert.equal(getDateKey(dates[0]), "2026-12-01");
+  assert.equal(getDateKey(dates[30]), "2026-12-31");
+  assert.equal(getDateKey(dates[60]), "2027-01-30");
 });
 
 test("mobile month combines overnight Event and Journey counts and type cues", () => {

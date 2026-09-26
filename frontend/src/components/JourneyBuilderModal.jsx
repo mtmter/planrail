@@ -6,6 +6,7 @@ import { addFixed, buildPlan, createInput, initialSavedPreview, journeyForSave, 
 import DateTimePicker from "./DateTimePicker";
 import JourneyTimeline from "./JourneyTimeline";
 import SelectedPlaceField from "./SelectedPlaceField";
+import useModalScrollLock from "./useModalScrollLock";
 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_API_BASE_URL;
 
@@ -139,6 +140,7 @@ export function JourneyBuilderContent({ event = null, journey = null, initialDea
 }
 
 export default function JourneyBuilderModal({ event = null, journey = null, onClose, onSave }) {
+  useModalScrollLock();
   return <div className="modal-backdrop" onMouseDown={(mouseEvent) => mouseEvent.target === mouseEvent.currentTarget && onClose()}>
     <section className="event-details-modal journey-builder-modal" role="dialog" aria-modal="true">
       <div className="modal-header"><div><p>移動予定</p><h2>{journey ? "移動予定を編集" : "移動予定を追加"}</h2></div>

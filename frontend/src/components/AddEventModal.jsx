@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { parseDateTime, toDateTimeInputValue } from "../dateUtils";
 import DateTimePicker from "./DateTimePicker";
 import EventPlaceField from "./EventPlaceField";
+import useModalScrollLock from "./useModalScrollLock";
 
 function AddEventModal({ initialValues, onClose, onSubmit, embedded = false }) {
   const [title, setTitle] = useState("");
@@ -13,6 +14,7 @@ function AddEventModal({ initialValues, onClose, onSubmit, embedded = false }) {
   const [arrivalBufferMinutes, setArrivalBufferMinutes] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  useModalScrollLock(!embedded);
 
   useEffect(() => {
     if (embedded) return undefined;
@@ -22,12 +24,9 @@ function AddEventModal({ initialValues, onClose, onSubmit, embedded = false }) {
       }
     }
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [embedded, isSubmitting, onClose]);
@@ -93,7 +92,7 @@ function AddEventModal({ initialValues, onClose, onSubmit, embedded = false }) {
         : 60 * 60 * 1000;
 
     setEventStartAt(nextStartAt);
-    if (nextStart) {
+    if (nextStart && currentEnd && nextStart > currentEnd) {
       setEventEndAt(
         toDateTimeInputValue(new Date(nextStart.getTime() + duration)),
       );
