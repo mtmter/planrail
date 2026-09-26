@@ -133,7 +133,7 @@ export function RouteTimeSummary({
   );
 }
 
-function RouteDetails({ heading, route = {}, embedded = false, nextDepartureAt = null, referenceDate = null }) {
+function RouteDetails({ heading, route = {}, embedded = false, nextDepartureAt = null, referenceDate = null, currentSegmentIndex = null }) {
   const segments = Array.isArray(route?.segments)
     ? route.segments.filter(
         (segment) => segment && typeof segment === "object",
@@ -149,6 +149,7 @@ function RouteDetails({ heading, route = {}, embedded = false, nextDepartureAt =
         {!embedded && <RoutePlace name={origin} departureAt={route.departure_at || firstSegment?.departure_at} origin referenceDate={referenceDate} />}
 
         {segments.map((segment, index) => {
+          const isCurrent = index === currentSegmentIndex;
           const transportLabel = getTransportLabel(segment.type);
           const segmentTitle = hasValue(segment.line_name) ? segment.line_name : transportLabel;
           const segmentDescription = [transportLabel, hasValue(segment.duration_minutes) ? `${segment.duration_minutes}分` : null].filter(Boolean).join("・");
@@ -158,7 +159,7 @@ function RouteDetails({ heading, route = {}, embedded = false, nextDepartureAt =
           const modeLabel = hasValue(segment.mode) ? getTransitModeLabel(segment.mode) : null;
 
           return <div className="route-segment-group" key={`${segment.departure_at || segment.from || segment.to || "segment"}-${index}`}>
-            <div className="route-segment">
+            <div className={`route-segment${isCurrent ? " is-current" : ""}`} aria-current={isCurrent ? "step" : undefined}>
               <span className="route-segment-line" aria-hidden="true" />
               <div className="route-segment-details">
                 {segmentTitle && <strong>{segmentTitle}</strong>}

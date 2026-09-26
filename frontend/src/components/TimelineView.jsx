@@ -51,12 +51,14 @@ function JourneyItem({ journey, event, selectedDate, now, autoFocus, manuallyExp
   const duration = Math.max(0, Math.round((parseDateTime(journey.arrival_at) - parseDateTime(journey.departure_at)) / 60000));
   return <article className={`timeline-item timeline-journey${autoFocus ? " is-focused" : ""}`}>
     {autoFocus && <p className="timeline-focus-label">{autoFocus === "active" ? "移動中" : "次の移動"} · {autoFocus === "active" ? `到着予定 ${formatRelativeTime(journey.arrival_at, selectedDate)}` : `出発まで ${remainingTime(journey.departure_at, now)}`}</p>}
-    <p className="timeline-item-time">{formatRelativeTime(journey.departure_at, selectedDate)} → {formatRelativeTime(journey.arrival_at, selectedDate)}</p>
+    {!autoFocus && <p className="timeline-item-time">{formatRelativeTime(journey.departure_at, selectedDate)} → {formatRelativeTime(journey.arrival_at, selectedDate)}</p>}
     <h3 className="timeline-journey-title">{timelineJourneyName(journey, event)}</h3>
-    {event && <p className="timeline-item-muted">予定「{event.title}」の移動</p>}
-    <p className="timeline-item-place">{firstPlace} → {lastPlace}</p>
-    <p className="timeline-item-muted">{duration}分{journeyMetrics(journey).map((metric) => ` · ${metric}`)}</p>
-    {expanded && <div className="timeline-journey-route"><JourneyTimeline sections={sections} referenceDate={selectedDate} /></div>}
+    {!autoFocus && <>
+      {event && <p className="timeline-item-muted">予定「{event.title}」の移動</p>}
+      <p className="timeline-item-place">{firstPlace} → {lastPlace}</p>
+      <p className="timeline-item-muted">{duration}分{journeyMetrics(journey).map((metric) => ` · ${metric}`)}</p>
+    </>}
+    {expanded && <div className="timeline-journey-route"><JourneyTimeline sections={sections} referenceDate={selectedDate} currentTime={autoFocus === "active" ? now : null} /></div>}
     <div className="timeline-item-actions">
       {!autoFocus && <button type="button" className="secondary-button" aria-expanded={expanded} onClick={() => onToggle(journey.id)}>{expanded ? "閉じる" : "経路を見る"}</button>}
       {expanded && <><button type="button" className="secondary-button" onClick={() => onOpen(journey)}>詳細</button>

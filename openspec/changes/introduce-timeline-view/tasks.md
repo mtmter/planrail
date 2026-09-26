@@ -16,6 +16,8 @@
 - [x] 3.2 Journeyのcompact項目と自動/手動展開の上部情報を作り、Event-linkedは`{event.title}へ`、Standaloneは目的地または旧FIXED-onlyの最後の降車地点から`{地点名}へ移動`と表示する。確認: 状態ラベル「移動中」「次の移動」を大見出しと分け、複数Journeyの開閉と既存カレンダー/詳細の名称維持を確認する。
 - [x] 3.3 展開領域に既存`JourneyTimeline`と`RouteDetails`/`RoutePlace`/`RouteTimeSummary`を埋め込み、日跨ぎの全体時刻を読めるよう共有表示だけを必要最小限拡張する。確認: 公共交通、徒歩、FIXED、待機、取得済み路線・行先・駅/バス停・ホーム・発着時刻と「前日/翌日」を確認し、未取得値を0表示しない。
 - [x] 3.4 既存のbutton、typography、spacing、colors、modal/Event UI、route segment CSSを使ってPC/スマホ幅を整える。確認: Journey Builder preview・Journey詳細・Timelineの経路表現が揃い、狭い画面でも横スクロールに依存せず、同等の経路UIや新design systemを複製していない。
+- [x] 3.5 自動展開Journeyの経路前summaryを状態案内と大見出しだけにし、非focused Journeyのcompact summaryを維持する。確認: 移動中・出発前のfocusedと手動展開したcompactを比較する。
+- [x] 3.6 共有JourneyTimeline/RouteDetailsに予定時刻から選んだ1つの現在segment・FIXED・section間待機の強調を加える。確認: 境界、出発前、終了後、徒歩、TRANSIT、FIXED、待機、詳細/Builderで強調が出ないこと、スマホ幅を検証する。
 
 ## 4. Event、準備、既存操作
 
