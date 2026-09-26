@@ -6,7 +6,7 @@
 - [x] 1.4 `frontend/index.html`の既存faviconと`viewport-fit=cover`を維持し、theme-colorとapple touch iconを参照する。完了条件: build後のHTMLでmanifest linkが一つ、viewportとicon参照が正しい。
 - [x] 1.5 pluginが生成するService Worker登録scriptを使用する。完了条件: build後のHTMLに自動登録scriptへの参照が一つあり、`main.jsx`は未変更、`virtual:pwa-register`のimport・独自の更新確認・更新UIがない。
 - [x] 1.6 `frontend/vercel.json`を追加し、`/`、`/index.html`、`/sw.js`、`/manifest.webmanifest`に`Cache-Control: public, max-age=0, must-revalidate`、manifestに`Content-Type: application/manifest+json`を指定する。完了条件: 設定ファイルを確認し、hashed assetsへの特別なheaderと広いSPA rewriteがない。
-- [x] 1.7 `docs/deployment.md`にPWA資源のURL/header、preview・productionでの確認方法、通常のService Worker更新とrollback時の確認方法を記す。READMEとのfrontend URL差は現行alias未確認として明示し、確証のないproduction URLを断定しない。完了条件: 設定と文書が一致する。
+- [x] 1.7 `docs/deployment.md`にPWA資源のURL/header、preview・productionでの確認方法、通常のService Worker更新とrollback時の確認方法を記す。案内用production URLを`https://planrail-frontend.vercel.app`と明示し、過去の別URLとのVercel project/alias関係は未確認として記録する。完了条件: 設定と文書が一致する。
 
 ## 2. Local verification tasks
 
@@ -23,7 +23,7 @@
 ### Vercel
 
 - ☐ Vercel previewとproductionの各frontend originで`/`、`/index.html`、`/sw.js`、`/manifest.webmanifest`とicon PNGが取得でき、status・Content-Type・指定したCache-Control・SWの`/` scopeが正しい。asset URLがHTMLへ誤rewriteされない。
-- ☐ READMEとdeployment資料にある二つのfrontend URLを現在のVercel project/aliasと照合し、案内するproduction originを決める。別originにインストールしたPWAは別扱いとして記録する。
+- ☐ 案内用production origin `https://planrail-frontend.vercel.app`と過去の`https://ryuute-v2-frontend.vercel.app`のVercel project/alias関係を管理画面で照合する。別originにインストールしたPWAは別扱いとして記録する。
 - ☐ 通常のPCブラウザ、mobile Safari/Chrome、Vercel previewで既存Reactアプリの認証・画面・主要操作が維持される。
 
 ### iPhone

@@ -1,10 +1,10 @@
 # Deployment
 
-このリポジトリとVercelから確認できるデプロイ設定、およびほかの外部サービス側で確認が必要な事項を分けて記載します。
+このリポジトリとVercelから確認できるデプロイ設定、およびほかの外部サービス側で確認が必要な事項を分けて記載します。PlanRailの案内用production URLは`https://planrail-frontend.vercel.app`です。
 
 ## 現在の本番環境
 
-2026年9月8日にVercel CLIと公開URLで確認した構成です。この確認時点ではTransit Providerへの置換前でした。
+以下は2026年9月8日にVercel CLIと公開URLで確認した当時の構成です。この確認時点ではTransit Providerへの置換前でした。表のfrontend URLは当時確認したURLで、現在の案内用production URLではありません。
 
 | 用途 | Project | Root Directory | Framework Preset | 公開URL |
 | --- | --- | --- | --- | --- |
@@ -90,7 +90,7 @@ VITE_BACKEND_API_BASE_URL=https://<backend-domain>/api
 
 ## PWAの配信と確認
 
-frontendの通常の`npm run build`は、`vite-plugin-pwa`でWeb App ManifestとService Workerを生成します。manifestは`https://<frontend-origin>/manifest.webmanifest`、Service Workerは`https://<frontend-origin>/sw.js`で配信し、登録scopeはそのfrontend originの`/`です。アイコンは`/pwa-192x192.png`、`/pwa-512x512.png`、`/pwa-maskable-512x512.png`、iOS用の`/apple-touch-icon.png`です。PWAの登録・cacheはoriginごとに独立します。
+frontendの通常の`npm run build`は、`vite-plugin-pwa`でWeb App ManifestとService Workerを生成します。案内用production originは`https://planrail-frontend.vercel.app`で、manifestはその`/manifest.webmanifest`、Service Workerは`/sw.js`、登録scopeは`/`です。previewでは各preview originの同じパスを確認します。アイコンは`/pwa-192x192.png`、`/pwa-512x512.png`、`/pwa-maskable-512x512.png`、iOS用の`/apple-touch-icon.png`です。PWAの登録・cacheはoriginごとに独立します。
 
 `frontend/vercel.json`は`/`、`/index.html`、`/sw.js`、`/manifest.webmanifest`に`Cache-Control: public, max-age=0, must-revalidate`を指定します。manifestには`Content-Type: application/manifest+json`も指定します。hashed JS/CSS/assetsには特別なheaderを追加せず、広いSPA rewriteも設定しません。backendの配信設定は変更しません。
 
@@ -133,4 +133,4 @@ GET https://<backend-domain>/api/health
 
 環境変数の実値、Firebase AuthenticationのAuthorized domains、Google Maps APIキーのHTTPリファラ制限、デプロイ済みFirestore Security Rulesの版は今回取得していません。これらは各サービスの管理画面で確認する必要があります。
 
-READMEは`https://planrail-frontend.vercel.app`、この資料の過去の確認結果は`https://ryuute-v2-frontend.vercel.app`をfrontend URLとして記載しています。現行production aliasはVercel project設定で要確認です。PWA確認時は実際に案内するoriginを決め、preview・productionを混同しないでください。
+案内用production URLは`https://planrail-frontend.vercel.app`と決定しました。過去の確認結果にある`https://ryuute-v2-frontend.vercel.app`とのVercel project/alias関係は管理画面で未確認です。PWAの配信・実機確認は案内用production originで行い、previewや別originのインストールと混同しないでください。

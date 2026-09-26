@@ -2,7 +2,7 @@
 
 `frontend`は単一のReact/Viteアプリで、`vite.config.js`はReact pluginのみ、`index.html`は`/favicon.svg`と`viewport-fit=cover`を持つ。manifestとService Workerはない。`package.json`/lockfileはVite `^8.2.0`、`npm test`、lint、buildを定義する。既存の`public/favicon.svg`は青い角丸背景と白い「P」のPlanRailアイコンで、`App.css`のモバイルtop bar、bottom navigation、FAB、追加sheetは既に`env(safe-area-inset-*)`を使っている。認証は`AuthProvider.jsx`でGoogle `signInWithPopup`、データCRUDはブラウザからFirestoreへ直接行う。
 
-Vercel frontend projectは`frontend`をRoot DirectoryとするVite projectで、`npm run build`を実行する。repositoryに`vercel.json`はなく、backendは別project/originである。`README.md`はproductionを`planrail-frontend.vercel.app`、2026-09-08時点の`docs/deployment.md`は`ryuute-v2-frontend.vercel.app`と記す。両URLは現時点でHTTP 200と同じHTML/asset名を返すが、同一projectのaliasかはrepositoryから確定できない。PWAのインストールとSWはorigin別になるため、productionの案内先を実装時のVercel project設定で確認する。現行canonical `schedule-management`は3表示と旧追加導線を記す一方、未archiveの`introduce-timeline-view`と`redesign-mobile-schedule-navigation`には採用済みのタイムラインと3つのmobile tabがある。この不整合は本changeでcanonicalへ同期せず、PWAが現在の実装と進行中のchangeに重なる箇所だけ回帰確認する。
+Vercel frontend projectは`frontend`をRoot DirectoryとするVite projectで、`npm run build`を実行する。change作成前のrepositoryに`vercel.json`はなく、backendは別project/originである。案内用production URLはユーザー指定の`https://planrail-frontend.vercel.app`とする。2026-09-08時点の`docs/deployment.md`は`https://ryuute-v2-frontend.vercel.app`を過去の確認先として記す。両URLはHTTP 200と同じHTML/asset名を返したが、同一projectのaliasかは管理画面で未確認である。PWAのインストールとSWはorigin別になるため、productionのPWA確認は案内用URLで行う。現行canonical `schedule-management`は3表示と旧追加導線を記す一方、未archiveの`introduce-timeline-view`と`redesign-mobile-schedule-navigation`には採用済みのタイムラインと3つのmobile tabがある。この不整合は本changeでcanonicalへ同期せず、PWAが現在の実装と進行中のchangeに重なる箇所だけ回帰確認する。
 
 ## Goals / Non-Goals
 
@@ -60,7 +60,7 @@ iOSのホーム画面WebアプリはSafariタブと保存領域が分かれる�
 - precache済みのshellはネットワーク断でも開くが、認証状態とFirestoreデータは保証されない → オフライン対応と誤認しない仕様・検証にし、API runtime cacheを置かない。
 - iOSではSafariとホーム画面アプリの保存領域が別になる → 初回ログイン、再起動、popupの戻り先をManual acceptanceで実機確認する。未実施でもCodexの実装task完了を妨げず、受け入れ結果は未確認として残す。
 - Vercelの実Project設定やheaderはrepositoryだけから確定できない → frontend/previewとproductionの公開応答を確認し、header/URLが一致しなければ公開完了としない。
-- READMEと古いdeployment資料は異なるfrontend URLを示す → Vercelの現在のproject/aliasを照合し、採用するproduction URLを資料に明記する。別originのインストール済みPWAは別アプリとして扱う。
+- 過去のdeployment資料には別のfrontend URLがある → 案内用production URLは`https://planrail-frontend.vercel.app`に統一し、Vercelのproject/alias関係は別途照合する。別originのインストール済みPWAは別アプリとして扱う。
 - `safe-area-inset-*`の計算値とmodalの収まりは端末・status bar状態に依存する → iPhone実機でtop/bottom、FAB、modal、sheetとソフトウェアキーボードを確認し、必要なCSSだけ調整する。
 
 ## Migration Plan
