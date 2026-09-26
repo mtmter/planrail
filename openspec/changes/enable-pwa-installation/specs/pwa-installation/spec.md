@@ -6,12 +6,12 @@ PlanRailを既存のWebアプリと同じ機能のまま、iPhoneとAndroidの�
 
 ### Requirement: PlanRailのインストール情報を配信する
 
-システムはHTTPSのfrontend originから有効なWeb App Manifestを配信し、`name`と`short_name`を`PlanRail`、`display`を`standalone`、`start_url`と`scope`を`/`、`theme_color`を`#2957c8`、`background_color`を`#ffffff`としなければならない（MUST）。manifestは取得可能な192×192と512×512の通常アイコン、maskable用途のアイコンを参照しなければならない（MUST）。
+システムはHTTPSのfrontend originから有効なWeb App Manifestを配信し、`name`と`short_name`を`PlanRail`、`description`を`移動予定と準備をまとめて管理するスケジュールアプリ`、`id`、`start_url`、`scope`をそれぞれ`/`、`display`を`standalone`、`theme_color`を`#2957c8`、`background_color`を`#ffffff`としなければならない（MUST）。manifestは取得可能な192×192と512×512の通常アイコン、およびmaskable用途の512×512アイコンを参照しなければならない（MUST）。
 
 #### Scenario: 本番のmanifestを取得する
 
 - **WHEN** Vercelのfrontend originでmanifestを取得する
-- **THEN** JSONとして正しいContent-Typeで取得でき、定義した名前・表示・URL・色・アイコンが読み取れ、アイコンURLは画像を返す
+- **THEN** JSONとして正しいContent-Typeで取得でき、定義した名前・説明・表示・識別子・URL・色・アイコンが読み取れ、アイコンURLは画像を返す
 
 #### Scenario: ホーム画面へ追加する
 
@@ -53,12 +53,12 @@ PlanRailを既存のWebアプリと同じ機能のまま、iPhoneとAndroidの�
 
 ### Requirement: デプロイ後の版を自動更新する
 
-システムはService Workerの新しい版を自動的に確認・有効化し、再訪または起動後に手動のキャッシュ削除や更新ボタンを要求せず、新しいVercel deploymentの静的アプリ版へ移行できなければならない（MUST）。古い版の不要なprecacheは更新後に残し続けてはならない（MUST NOT）。
+システムは新しいVercel deploymentのService Worker版が通常のブラウザ更新機構で検出されたとき、ユーザーに更新ボタンや手動のキャッシュ削除を要求せず、新しい静的アプリ版へ移行できなければならない（MUST）。古い版の不要なprecacheは更新後に残し続けてはならない（MUST NOT）。
 
 #### Scenario: 新しいbuildをデプロイする
 
 - **WHEN** インストール済みPWAを一度起動した後、frontendの新しいbuildを同じoriginへデプロイして再訪または再起動する
-- **THEN** Service Worker更新を検出・適用し、手動のキャッシュ削除なしに新しい静的アプリ版を表示できる
+- **THEN** 通常のService Worker更新確認で新版を検出・適用し、手動のキャッシュ削除なしに新しい静的アプリ版を表示できる
 
 ### Requirement: standaloneでも画面の操作領域を守る
 

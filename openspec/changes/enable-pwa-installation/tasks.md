@@ -1,26 +1,42 @@
-## 1. PWA資源とbuild設定
+## 1. Implementation tasks
 
 - [ ] 1.1 `frontend/package.json`とlockfileへVite 8対応の`vite-plugin-pwa` 1.3.0を開発依存として追加する。完了条件: 通常のnpm installでpeer dependency errorがなく、解決されたVite/plugin/Node版を確認できる。
-- [ ] 1.2 `frontend/public/favicon.svg`の現行「青背景＋白P」から`pwa-192x192.png`、`pwa-512x512.png`、safe zoneにPが収まる`pwa-maskable-512x512.png`、180×180の`apple-touch-icon.png`を`frontend/public/`へ作る。完了条件: ファイルの実寸・PNG形式、通常/マスク時の視認性を確認できる。
-- [ ] 1.3 `frontend/vite.config.js`でpluginの`generateSW`、manifest（PlanRail名、`id`/`start_url`/`scope`=`/`、standalone、色、通常192/512とmaskable icon）、静的asset precache、旧cache cleanupを設定する。完了条件: production buildの`dist/manifest.webmanifest`と`sw.js`が生成され、manifestの値とprecache一覧にHTML/JS/CSS/公開アイコンが含まれ、動的APIのruntime cacheがない。
-- [ ] 1.4 `frontend/index.html`の既存`viewport-fit=cover`とfaviconを維持し、theme-colorとapple touch iconを参照する。完了条件: build後のHTMLでmanifest linkが一つ、viewportとicon参照が正しい。
+- [ ] 1.2 `frontend/public/favicon.svg`の「青背景＋白P」から`pwa-192x192.png`、`pwa-512x512.png`、safe zoneにPが収まる`pwa-maskable-512x512.png`、180×180の`apple-touch-icon.png`を`frontend/public/`へ作る。完了条件: 実ファイルの寸法・PNG形式とmaskable safe zoneを確認できる。
+- [ ] 1.3 `frontend/vite.config.js`に`generateSW`、`registerType: 'autoUpdate'`、manifestの名前・日本語description・`id`/`start_url`/`scope`=`/`・standalone・色・192/512/maskableアイコンを設定する。静的app shellだけをprecacheし、rootだけのnavigateFallback、旧precache cleanupを維持し、動的APIのruntime cacheを設定しない。完了条件: 設定と生成manifest/SWを照合できる。
+- [ ] 1.4 `frontend/index.html`の既存faviconと`viewport-fit=cover`を維持し、theme-colorとapple touch iconを参照する。完了条件: build後のHTMLでmanifest linkが一つ、viewportとicon参照が正しい。
+- [ ] 1.5 `frontend/src/main.jsx`でpluginのService Worker登録APIを一度だけ呼ぶ。完了条件: ローカルの`npm run preview`で`/sw.js`がfrontend originの`/` scopeに登録され、独自の更新確認ロジックや更新UIがない。
+- [ ] 1.6 `frontend/vercel.json`を追加し、`/`、`/index.html`、`/sw.js`、`/manifest.webmanifest`に`Cache-Control: public, max-age=0, must-revalidate`、manifestに`Content-Type: application/manifest+json`を指定する。完了条件: 設定ファイルを確認し、hashed assetsへの特別なheaderと広いSPA rewriteがない。
+- [ ] 1.7 `docs/deployment.md`にPWA資源のURL/header、preview・productionでの確認方法、通常のService Worker更新とrollback時の確認方法を記す。READMEとのfrontend URL差は現行alias未確認として明示し、確証のないproduction URLを断定しない。完了条件: 設定と文書が一致する。
 
-## 2. Service Worker登録とVercel配信
+## 2. Local verification tasks
 
-- [ ] 2.1 `frontend/src/main.jsx`でpluginの登録APIを一度だけ使い、`autoUpdate`と再表示時・可視状態の約1時間ごとの更新確認を有効にする。完了条件: `npm run preview`のApplication/Service Workersで`/sw.js`が`/` scopeに登録され、二重登録や不要な更新UIがない。開発serverでの未登録は問題としない。
-- [ ] 2.2 `frontend/vercel.json`へfrontendの`/sw.js`・HTML再検証と`/manifest.webmanifest`のContent-Typeに必要な最小headerだけを追加し、`docs/deployment.md`へPWA配信と更新確認方法を記す。完了条件: frontend Root Directoryの通常Vite buildを維持し、`vercel.json`がbackendや全パスrewriteを追加していない。READMEとdeployment資料の二つのfrontend URLは現在のVercel project/aliasと照合し、案内するproduction originを明記する。
+- [ ] 2.1 `cd frontend && npm test`を実行する。完了条件: 成功するか、変更に起因する失敗を修正して再実行する。
+- [ ] 2.2 `cd frontend && npm run lint`を実行する。完了条件: 成功するか、変更に起因する失敗を修正して再実行する。
+- [ ] 2.3 `cd frontend && npm run build`を実行する。完了条件: 成功し、通常のVite buildで`dist/manifest.webmanifest`と`dist/sw.js`が生成される。
+- [ ] 2.4 build生成物を静的に確認する。完了条件: manifestの全項目とicon実寸、HTMLのmanifest link、SWのHTML/JS/CSS/icon precacheと旧cache cleanup、動的API runtime cacheがないことを確認できる。
+- [ ] 2.5 `cd frontend && npm run preview`で可能な範囲を確認する。完了条件: localhost上でmanifest/icon/SWを取得し、利用可能なブラウザのApplication/ManifestとService Workersで重大なinstallability error、登録・scope、通常PC/スマホ表示を確認する。ブラウザや認証環境がない場合は実施できた範囲と未確認範囲を記録する。dev serverでSWが動かないことは不合格としない。
 
-## 3. buildとブラウザでの統合確認
+## Manual acceptance checklist
 
-- [ ] 3.1 `cd frontend && npm test && npm run lint && npm run build`を実行する。完了条件: 3コマンドが成功し、失敗時は原因を修正して再実行する。backendに変更がないためbackend unittestは対象外とする。
-- [ ] 3.2 `npm run preview`で生成manifestとicon URLを直接取得し、名前・表示・起動範囲・色・画像寸法、Service Worker登録/制御、静的precache、Firestore/Auth/Places/経路APIの非runtime-cacheを確認する。完了条件: ブラウザNetwork/Applicationとbuild生成物で根拠を記録でき、オフライン時も静的shell以上の機能を成功扱いにしていない。
-- [ ] 3.3 Chromium DevToolsのApplication/ManifestとService Workersでinstallabilityの重大なエラーがなく、192/512/maskable iconの読み込みとsafe zoneを確認する。完了条件: DevToolsの診断結果を記録し、実機でのホーム画面起動とは区別する。
-- [ ] 3.4 通常のPCブラウザ、mobile Safari/Chrome、Vercel previewで既存のログイン、画面、操作を回帰確認する。完了条件: PCの月/週/日/Timeline、スマホのタイムライン→カレンダー→準備、Event/Journeyの主要操作が同じReactアプリで使える。実機やログイン環境が不足した範囲は未確認として記録する。
+以下はデプロイ後に人が確認し、結果と未確認項目を記録する。未実施でも上記のCodex implementation/local verification tasksは完了できる。
 
-## 4. Vercel productionとiPhoneの受け入れ確認
+### Vercel
 
-- [ ] 4.1 frontendのpreviewとproductionへ通常のVite buildをデプロイし、各originの`/manifest.webmanifest`、icon PNG、`/sw.js`、`/`のHTTP status、Content-Type、cache header、SW scopeを確認する。完了条件: asset URLがHTMLへ誤rewriteされず、productionでSW登録・制御が確認できる。デプロイできない場合はこのtaskを未完了のままにする。
-- [ ] 4.2 可能ならiPhone実機Safariでproduction URLを開き「ホーム画面に追加」→アイコンから起動→standalone状態でGoogleログインとTimeline表示→カレンダー/準備、bottom navigation、FAB、modal、bottom sheet、再起動まで確認する。完了条件: 各操作の結果を記録し、Safariとホーム画面アプリで認証状態が別でもログインできる。実機確認ができなければ完了扱いにせず未確認を列挙する。
-- [ ] 4.3 iPhone実機のnotch/Dynamic Island、status bar、Home Indicatorとtop bar、bottom navigation、FAB、modal/bottom sheet、スクロール末尾・キーボードの位置を確認し、必要な`App.css`の微調整だけ行う。完了条件: 通常Safariとstandaloneの両方で操作が遮られない。実機確認ができなければ未完了のまま残す。
-- [ ] 4.4 同じproduction originで一度PWAを起動後、小さな静的表示差を含む新buildをデプロイし、再起動または再表示でSWが更新され最新版へ移ることと旧precache cleanupを確認する。完了条件: 更新ボタンや手動cache削除を使わず新しい版へ移行し、フォーム編集中の自動再読み込みの影響も記録する。二度のdeployができない場合は未完了にする。
-- [ ] 4.5 可能ならAndroid実機のChromeでproduction URLをインストールし、ホーム画面アイコンからのstandalone起動、ログイン、既存mobile navigation、再起動を確認する。完了条件: 実機操作の結果を記録し、実機がなければ未確認としてこのtaskを未完了のまま残す。
+- ☐ Vercel previewとproductionの各frontend originで`/`、`/index.html`、`/sw.js`、`/manifest.webmanifest`とicon PNGが取得でき、status・Content-Type・指定したCache-Control・SWの`/` scopeが正しい。asset URLがHTMLへ誤rewriteされない。
+- ☐ READMEとdeployment資料にある二つのfrontend URLを現在のVercel project/aliasと照合し、案内するproduction originを決める。別originにインストールしたPWAは別扱いとして記録する。
+- ☐ 通常のPCブラウザ、mobile Safari/Chrome、Vercel previewで既存Reactアプリの認証・画面・主要操作が維持される。
+
+### iPhone
+
+- ☐ 実機Safariでproduction URLを開き、ホーム画面へ追加してアイコンからstandalone起動する。
+- ☐ ホーム画面アプリ内でGoogleログイン、Timeline表示、カレンダー・準備への移動、bottom navigation、FAB、modal、bottom sheet、再起動を確認する。Safariタブとstandaloneの保存領域・認証状態の差も記録する。
+- ☐ notch/Dynamic Island、status bar、Home Indicatorとtop bar、bottom navigation、FAB、modal/bottom sheet、スクロール末尾、ソフトウェアキーボードが重ならないことを通常Safariとstandaloneで確認する。必要なCSS微調整が見つかった場合は別途実装修正する。
+
+### Android
+
+- ☐ 実機Chromeでproduction URLをインストールし、ホーム画面アイコンからのstandalone起動、ログイン、既存mobile navigation、再起動を確認する。
+
+### Update and rollback
+
+- ☐ 同じproduction originでインストール済みPWAを起動後、更新されたbuildをデプロイし、通常の再訪・再起動でService Workerと静的アプリ版が更新され、旧precacheがcleanupされることを確認する。手動cache削除は使わず、フォーム編集中の再読み込みの影響も記録する。
+- ☐ rollback後も通常のService Worker更新で戻した版へ移れ、手動cache削除を通常の復旧操作として要求しないことを確認する。

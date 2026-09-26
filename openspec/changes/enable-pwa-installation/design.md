@@ -20,7 +20,7 @@ Vercel frontend projectは`frontend`をRoot DirectoryとするVite projectで、
 
 ### 2. manifestをVite設定から生成し、アイコンは`public/`に置く
 
-pluginの`manifest`を唯一のmanifest定義とし、`manifestFilename: 'manifest.webmanifest'`、`name`/`short_name: 'PlanRail'`、`id: '/'`、`start_url: '/'`、`scope: '/'`、`display: 'standalone'`、`theme_color: '#2957c8'`、`background_color: '#ffffff'`を設定する。`id`は将来の起動URL変更でも同じアプリとして識別されるため固定する。root URLは現在の単一画面アプリに合い、productionとpreviewではoriginごとに解決される。`index.html`には生成manifestへのlinkをpluginに任せ、既存faviconとviewport指定を維持して`meta name="theme-color"`を色に合わせる。二重の手書きmanifest linkは作らない。
+pluginの`manifest`を唯一のmanifest定義とし、`manifestFilename: 'manifest.webmanifest'`、`name`/`short_name: 'PlanRail'`、`description: '移動予定と準備をまとめて管理するスケジュールアプリ'`、`id: '/'`、`start_url: '/'`、`scope: '/'`、`display: 'standalone'`、`theme_color: '#2957c8'`、`background_color: '#ffffff'`を設定する。`id`は将来の起動URL変更でも同じアプリとして識別されるため固定する。root URLは現在の単一画面アプリに合い、productionとpreviewではoriginごとに解決される。`index.html`には生成manifestへのlinkをpluginに任せ、既存faviconとviewport指定を維持して`meta name="theme-color"`を色に合わせる。二重の手書きmanifest linkは作らない。
 
 画像の完成ファイルは`frontend/public/pwa-192x192.png`、`pwa-512x512.png`、`pwa-maskable-512x512.png`、`apple-touch-icon.png`（180×180）とする。manifestの通常アイコンは前二者を`purpose: 'any'`、`type: 'image/png'`、実サイズで参照し、maskableは専用512画像を`purpose: 'maskable'`で参照する。iOSのtouch iconは`index.html`から明示的に参照する。現行favicon SVGを拡大・ラスタライズして通常版と180版を作れる。maskable版は青背景を全域に敷き、白いPを中央のmaskable safe zone内へ縮小配置する。単純な通常版の`maskable`指定は、OSのマスクでPが切れるおそれがある。アイコンを新たにデザインせず、safe zoneと実ファイル寸法をChrome DevToolsで確認する。`icons.svg`は外部サービスのsymbol集であり、アプリアイコンの素材にしない。
 
@@ -32,13 +32,13 @@ pluginの`generateSW`を使い、buildの`index.html`、hashed JS/CSS、およ�
 
 参考: [precache対象の既定値](https://vite-pwa-org.netlify.app/guide/service-worker-precache)、[public assetの収録](https://vite-pwa-org.netlify.app/guide/static-assets)。
 
-### 4. 自動更新を有効にし、再訪と長時間起動を確認する
+### 4. ブラウザの通常のService Worker更新確認を使う
 
-`registerType: 'autoUpdate'`を指定する。pluginはWorkboxの`skipWaiting`と`clientsClaim`を有効にし、`generateSW`は旧precacheのcleanupを既定で行う。登録はpluginの`virtual:pwa-register`を`main.jsx`から一度だけ呼び、`onRegisteredSW`のregistrationで、アプリが再び可視になったときと可視状態で約1時間ごとに`update()`を呼ぶ。後者はブラウザの通常の更新確認だけに頼ると長く開いた画面が旧版に残るためで、独自SWや更新UIではない。通信できない間の更新失敗は次の確認に委ねる。`devOptions`は有効化せず、開発serverでSWが登録されないことは不合格としない。
+`registerType: 'autoUpdate'`を指定する。pluginはWorkboxの`skipWaiting`と`clientsClaim`を有効にし、`generateSW`は旧precacheのcleanupを既定で行う。登録はpluginの`virtual:pwa-register`を`main.jsx`から一度だけ呼ぶ。新deploymentは再訪・再起動などに伴うブラウザとService Workerの通常の更新確認で検出し、手動cache削除を通常運用で要求しない。独自の更新確認ロジックや更新UIは追加しない。`devOptions`は有効化せず、開発serverでSWが登録されないことは不合格としない。
 
-自動適用では編集中のフォームが再読み込みされ、未保存入力を失う可能性がある。今回の「更新操作不要」と「長期固定回避」を優先する選択として受け入れ、実装時にEvent/Journeyフォームを開いた状態の更新を確認する。予期せぬリロードが実利用上重大と分かった場合は、無断でprompt方式へ変えず別の判断として記録する。古いビルド資源を残し続けるための任意runtime cacheは導入しない。
+`autoUpdate`で新版が適用されると編集中のEvent/Journeyフォームが再読み込みされ、未保存入力を失う可能性は残る。追加の更新確認を設けず発生機会を増やさない一方、長時間開いたままの画面がdeploy直後に必ず切り替わるとは保証しない。実際の更新とフォームへの影響はdeployment後のManual acceptanceで確認する。古いビルド資源を残し続けるための任意runtime cacheは導入しない。
 
-参考: [pluginのautoUpdateとcleanup](https://vite-pwa-org.netlify.app/guide/auto-update)、[periodic update API](https://vite-pwa-org.netlify.app/guide/periodic-sw-updates)。
+参考: [pluginのautoUpdateとcleanup](https://vite-pwa-org.netlify.app/guide/auto-update)。
 
 ### 5. iOSではmanifestのstandaloneを使い、既存safe areaを実機で確認する
 
@@ -50,15 +50,15 @@ iOSのホーム画面WebアプリはSafariタブと保存領域が分かれる�
 
 ### 6. Vercelではfrontend projectの静的配信を維持する
 
-`frontend/vercel.json`を最小限のheader設定として用意し、`/sw.js`と`/index.html`、`/`のHTMLに再検証可能なcache policyを与え、`/manifest.webmanifest`に`application/manifest+json`を指定する。生成済み`/sw.js`はJavaScript MIME、PNGは`image/png`で、root scopeがそのfrontend origin内だけになることを実際のproduction/preview応答で検証する。広い`/(.*) -> /index.html`のrewriteは導入しない。これは現在routerがなく、manifest・SW・iconの直接取得を誤ってHTMLへ送らないためである。`docs/deployment.md`には設定とproduction確認方法を追記する。backend projectとAPI契約は変更しない。
+`frontend/vercel.json`を最小限のheader設定として用意し、`/`、`/index.html`、`/sw.js`、`/manifest.webmanifest`に`Cache-Control: public, max-age=0, must-revalidate`を指定する。`/manifest.webmanifest`には`Content-Type: application/manifest+json`も指定する。hashed JS/CSSやその他のassetには今回特別なcache headerを追加せず、Vite/Vercelの通常の配信挙動に任せる。生成済み`/sw.js`はJavaScript MIME、PNGは`image/png`で、root scopeがそのfrontend origin内だけになることをdeployment後のproduction/preview応答で確認する。広い`/(.*) -> /index.html`のrewriteは導入しない。これは現在routerがなく、manifest・SW・iconの直接取得を誤ってHTMLへ送らないためである。`docs/deployment.md`には設定と確認方法を追記する。backend projectとAPI契約は変更しない。
 
 参考: [Vite PWAのVercel配信ガイド](https://vite-pwa-org.netlify.app/deployment/vercel)。
 
 ## Risks / Trade-offs
 
-- 自動更新時の再読み込みで未保存のEvent/Journeyフォームが失われる → 実装時に発生条件を再現し、受け入れ検証に記録する。更新戦略の変更が必要なら別途判断する。
+- 自動更新時の再読み込みで未保存のEvent/Journeyフォームが失われる → Manual acceptanceで影響を記録する。更新戦略の変更が必要なら別途判断する。
 - precache済みのshellはネットワーク断でも開くが、認証状態とFirestoreデータは保証されない → オフライン対応と誤認しない仕様・検証にし、API runtime cacheを置かない。
-- iOSではSafariとホーム画面アプリの保存領域が別になる → 初回ログイン、再起動、popupの戻り先を実機で確認し、未確認ならtaskを未完了にする。
+- iOSではSafariとホーム画面アプリの保存領域が別になる → 初回ログイン、再起動、popupの戻り先をManual acceptanceで実機確認する。未実施でもCodexの実装task完了を妨げず、受け入れ結果は未確認として残す。
 - Vercelの実Project設定やheaderはrepositoryだけから確定できない → frontend/previewとproductionの公開応答を確認し、header/URLが一致しなければ公開完了としない。
 - READMEと古いdeployment資料は異なるfrontend URLを示す → Vercelの現在のproject/aliasを照合し、採用するproduction URLを資料に明記する。別originのインストール済みPWAは別アプリとして扱う。
 - `safe-area-inset-*`の計算値とmodalの収まりは端末・status bar状態に依存する → iPhone実機でtop/bottom、FAB、modal、sheetとソフトウェアキーボードを確認し、必要なCSSだけ調整する。
