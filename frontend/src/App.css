@@ -1718,8 +1718,6 @@
 }
 
 .place-autocomplete-widget {
-  position: relative;
-  display: block;
   width: 100%;
   border: 1px solid #cbd3df;
   border-radius: 7px;
@@ -1749,13 +1747,7 @@
 }
 
 .place-autocomplete-widget::part(prediction-list) {
-  position: absolute;
   z-index: 30;
-  top: 100%;
-  right: 0;
-  left: 0;
-  max-height: min(40dvh, 280px);
-  overflow-y: auto;
 }
 
 .place-autocomplete-status,
