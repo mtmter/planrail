@@ -1,7 +1,7 @@
 ## 1. Implementation tasks
 
 - [x] 1.1 `frontend/package.json`とlockfileへVite 8対応の`vite-plugin-pwa` 1.3.0を開発依存として追加する。完了条件: 通常のnpm installでpeer dependency errorがなく、解決されたVite/plugin/Node版を確認できる。
-- [x] 1.2 `frontend/public/favicon.svg`の「青背景＋白P」から`pwa-192x192.png`、`pwa-512x512.png`、safe zoneにPが収まる`pwa-maskable-512x512.png`、180×180の`apple-touch-icon.png`を`frontend/public/`へ作る。完了条件: 実ファイルの寸法・PNG形式とmaskable safe zoneを確認できる。
+- [x] 1.2 ユーザー提供の`planrail-icon.png`から`pwa-192x192.png`、`pwa-512x512.png`、図柄がsafe zoneに収まる`pwa-maskable-512x512.png`、180×180の`apple-touch-icon.png`を`frontend/public/`へ作る。完了条件: 実ファイルの寸法・PNG形式とmaskable safe zoneを確認できる。
 - [x] 1.3 `frontend/vite.config.js`に`generateSW`、`registerType: 'autoUpdate'`、pluginの自動登録、manifestの名前・日本語description・`id`/`start_url`/`scope`=`/`・standalone・色・192/512/maskableアイコンを設定する。静的app shellだけをprecacheし、rootだけのnavigateFallback、旧precache cleanupを維持し、動的APIのruntime cacheを設定しない。完了条件: 設定と生成manifest/SWを照合できる。
 - [x] 1.4 `frontend/index.html`の既存faviconと`viewport-fit=cover`を維持し、theme-colorとapple touch iconを参照する。完了条件: build後のHTMLでmanifest linkが一つ、viewportとicon参照が正しい。
 - [x] 1.5 pluginが生成するService Worker登録scriptを使用する。完了条件: build後のHTMLに自動登録scriptへの参照が一つあり、`main.jsx`は未変更、`virtual:pwa-register`のimport・独自の更新確認・更新UIがない。

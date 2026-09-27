@@ -20,15 +20,15 @@ Vercel frontend projectは`frontend`をRoot DirectoryとするVite projectで、
 
 ### 2. manifestをVite設定から生成し、アイコンは`public/`に置く
 
-pluginの`manifest`を唯一のmanifest定義とし、`manifestFilename: 'manifest.webmanifest'`、`name`/`short_name: 'PlanRail'`、`description: '移動予定と準備をまとめて管理するスケジュールアプリ'`、`lang: 'ja'`、`id: '/'`、`start_url: '/'`、`scope: '/'`、`display: 'standalone'`、`theme_color: '#2957c8'`、`background_color: '#ffffff'`を設定する。`id`は将来の起動URL変更でも同じアプリとして識別されるため固定する。root URLは現在の単一画面アプリに合い、productionとpreviewではoriginごとに解決される。`index.html`には生成manifestへのlinkをpluginに任せ、既存faviconとviewport指定を維持して`meta name="theme-color"`を色に合わせる。二重の手書きmanifest linkは作らない。
+pluginの`manifest`を唯一のmanifest定義とし、`manifestFilename: 'manifest.webmanifest'`、`name`/`short_name: 'PlanRail'`、`description: '移動予定と準備をまとめて管理するスケジュールアプリ'`、`lang: 'ja'`、`id: '/'`、`start_url: '/'`、`scope: '/'`、`display: 'standalone'`、`theme_color: '#187a35'`、`background_color: '#ffffff'`を設定する。`id`は将来の起動URL変更でも同じアプリとして識別されるため固定する。root URLは現在の単一画面アプリに合い、productionとpreviewではoriginごとに解決される。`index.html`には生成manifestへのlinkをpluginに任せ、faviconとviewport指定を維持して`meta name="theme-color"`を色に合わせる。二重の手書きmanifest linkは作らない。
 
-画像の完成ファイルは`frontend/public/pwa-192x192.png`、`pwa-512x512.png`、`pwa-maskable-512x512.png`、`apple-touch-icon.png`（180×180）とする。manifestの通常アイコンは前二者を`purpose: 'any'`、`type: 'image/png'`、実サイズで参照し、maskableは専用512画像を`purpose: 'maskable'`で参照する。iOSのtouch iconは`index.html`から明示的に参照する。現行favicon SVGを拡大・ラスタライズして通常版と180版を作れる。maskable版は青背景を全域に敷き、白いPを中央のmaskable safe zone内へ縮小配置する。単純な通常版の`maskable`指定は、OSのマスクでPが切れるおそれがある。アイコンを新たにデザインせず、safe zoneと実ファイル寸法をChrome DevToolsで確認する。`icons.svg`は外部サービスのsymbol集であり、アプリアイコンの素材にしない。
+画像の完成ファイルは`frontend/public/pwa-192x192.png`、`pwa-512x512.png`、`pwa-maskable-512x512.png`、`apple-touch-icon.png`（180×180）とする。manifestの通常アイコンは前二者を`purpose: 'any'`、`type: 'image/png'`、実サイズで参照し、maskableは専用512画像を`purpose: 'maskable'`で参照する。iOSのtouch iconは`index.html`から明示的に参照する。ユーザー提供の`planrail-icon.png`を元に通常版と180版を作り、faviconにも同じPNGを使う。maskable版は白背景を全域に敷き、図柄を中央のmaskable safe zone内へ縮小配置する。単純な通常版の`maskable`指定は、OSのマスクで図柄が切れるおそれがある。safe zoneと実ファイル寸法をChrome DevToolsで確認する。`icons.svg`は外部サービスのsymbol集であり、アプリアイコンの素材にしない。
 
 参考: [manifest icons](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest/Reference/icons)、[Chromeのmanifest確認](https://developer.chrome.com/docs/devtools/progressive-web-apps)。
 
 ### 3. `generateSW`で静的app shellだけをprecacheする
 
-pluginの`generateSW`を使い、buildの`index.html`、hashed JS/CSS、およびmanifestに記載した公開アイコンをprecacheする。Workboxのdefault `globPatterns`はJS/CSS/HTMLで、manifest iconsは`public/`から自動収録される。必要な追加公開assetは`includeAssets: ['favicon.svg', 'apple-touch-icon.png']`に限定し、`runtimeCaching`を設定しない。`workbox.navigateFallback: '/index.html'`と`navigateFallbackAllowlist: [/^\/$/]`でナビゲーションfallbackを現在の`/`だけに制限し、任意パス・外部origin・API requestをapp shellへ書き換えない。Firestore SDK内部の永続化機能やブラウザHTTP cacheの振る舞いを、このSWのオフライン保証とは扱わない。オフラインで静的shellが描画されても認証・データ・検索の成功を約束しない。
+pluginの`generateSW`を使い、buildの`index.html`、hashed JS/CSS、およびmanifestに記載した公開アイコンをprecacheする。Workboxのdefault `globPatterns`はJS/CSS/HTMLで、manifest iconsは`public/`から自動収録される。必要な追加公開assetは`includeAssets: ['planrail-icon.png', 'apple-touch-icon.png']`に限定し、`runtimeCaching`を設定しない。`workbox.navigateFallback: '/index.html'`と`navigateFallbackAllowlist: [/^\/$/]`でナビゲーションfallbackを現在の`/`だけに制限し、任意パス・外部origin・API requestをapp shellへ書き換えない。Firestore SDK内部の永続化機能やブラウザHTTP cacheの振る舞いを、このSWのオフライン保証とは扱わない。オフラインで静的shellが描画されても認証・データ・検索の成功を約束しない。
 
 参考: [precache対象の既定値](https://vite-pwa-org.netlify.app/guide/service-worker-precache)、[public assetの収録](https://vite-pwa-org.netlify.app/guide/static-assets)。
 
