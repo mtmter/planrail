@@ -569,7 +569,9 @@ function ScheduleApp({ authErrorMessage, onLogout, user }) {
       ) : (
       <header className="app-header">
         <div className="app-brand">
-          <img className="app-logo" src="/planrail-icon.png" alt="" />
+          <span className="app-logo" aria-hidden="true">
+            P
+          </span>
           <h1>PlanRail</h1>
         </div>
 
@@ -957,7 +959,9 @@ function App() {
     return (
       <main className="auth-screen">
         <section className="auth-card" aria-labelledby="login-title">
-          <img className="app-logo" src="/planrail-icon.png" alt="" />
+          <span className="app-logo" aria-hidden="true">
+            P
+          </span>
           <h1 id="login-title">PlanRail</h1>
           <p>予定に向かうための移動と準備を支援するスケジュール帳</p>
           {authErrorMessage && (
