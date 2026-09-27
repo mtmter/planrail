@@ -6,7 +6,7 @@ PlanRailを既存のWebアプリと同じ機能のまま、iPhoneとAndroidの�
 
 ### Requirement: PlanRailのインストール情報を配信する
 
-システムはHTTPSのfrontend originから有効なWeb App Manifestを配信し、`name`と`short_name`を`PlanRail`、`description`を`移動予定と準備をまとめて管理するスケジュールアプリ`、`id`、`start_url`、`scope`をそれぞれ`/`、`display`を`standalone`、`theme_color`を`#187a35`、`background_color`を`#ffffff`としなければならない（MUST）。manifestは取得可能な192×192と512×512の通常アイコン、およびmaskable用途の512×512アイコンを参照しなければならない（MUST）。
+システムはHTTPSのfrontend originから有効なWeb App Manifestを配信し、`name`と`short_name`を`PlanRail`、`description`を`移動予定と準備をまとめて管理するスケジュールアプリ`、`id`、`start_url`、`scope`をそれぞれ`/`、`display`を`standalone`、`theme_color`を`#2957c8`、`background_color`を`#ffffff`としなければならない（MUST）。manifestは取得可能な192×192と512×512の通常アイコン、およびmaskable用途の512×512アイコンを参照しなければならない（MUST）。
 
 #### Scenario: 本番のmanifestを取得する
 

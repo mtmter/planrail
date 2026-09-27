@@ -10,7 +10,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       manifestFilename: 'manifest.webmanifest',
-      includeAssets: ['planrail-icon.png', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'PlanRail',
         short_name: 'PlanRail',
@@ -20,7 +20,7 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        theme_color: '#187a35',
+        theme_color: '#2957c8',
         background_color: '#ffffff',
         icons: [
           { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
